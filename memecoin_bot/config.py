@@ -74,6 +74,25 @@ class Settings:
     assumed_fee_bps: float = 30.0
     priority_fee_usd: float = 0.02
 
+    # --- On-chain verification --------------------------------------------
+    rpc_endpoint: str = "https://api.mainnet-beta.solana.com"
+    """Solana JSON-RPC endpoint. The public one rate limits hard; a paid
+    endpoint is required before live trading, because a throttled safety
+    check fails closed and the bot simply stops finding candidates."""
+    jupiter_endpoint: str = "https://quote-api.jup.ag/v6"
+    max_sell_price_impact_pct: float = 0.15
+    """A sell quote worse than this counts as unsellable."""
+    sell_probe_tokens: float = 1_000.0
+    """Whole tokens to quote when testing whether a position can be sold."""
+    authority_cache_seconds: int = 900
+    """A revoked authority cannot be un-revoked, so caching is safe."""
+
+    lp_lock_policy: str = "strict"
+    """``strict`` rejects tokens whose LP lock cannot be proven. ``substitute``
+    accepts depth and age as a weaker proxy -- a real loosening of safety."""
+    lp_substitute_min_liquidity_usd: float = 100_000.0
+    lp_substitute_min_age_seconds: int = 6 * 3_600
+
     # --- Re-entry control -------------------------------------------------
     reentry_cooldown_seconds: int = 6 * 3_600
     """After exiting a mint, refuse to buy it again for this long. Without
@@ -169,6 +188,11 @@ def load_settings() -> Settings:
         min_liquidity_usd=_float(
             "MEMEBOT_MIN_LIQUIDITY_USD", 25_000.0, minimum=0.0
         ),
+        rpc_endpoint=os.getenv(
+            "MEMEBOT_RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"
+        ).strip() or "https://api.mainnet-beta.solana.com",
+        lp_lock_policy=os.getenv("MEMEBOT_LP_POLICY", "strict").strip().lower()
+        or "strict",
         reentry_cooldown_seconds=_int(
             "MEMEBOT_REENTRY_COOLDOWN_SECONDS", 6 * 3_600, minimum=0
         ),
@@ -180,4 +204,8 @@ def load_settings() -> Settings:
 
     if settings.take_profit_fraction >= 1.0:
         raise RuntimeError("take_profit_fraction must leave a runner behind.")
+    if settings.lp_lock_policy not in ("strict", "substitute"):
+        raise RuntimeError(
+            "MEMEBOT_LP_POLICY must be 'strict' or 'substitute'."
+        )
     return settings

@@ -8,6 +8,7 @@ Usage::
     python -m memecoin_bot close    # flatten every open position
     python -m memecoin_bot simulate # one offline run on synthetic prices
     python -m memecoin_bot sweep    # many runs; read the spread, not one run
+    python -m memecoin_bot verify <mint>   # run every safety check on one token
 """
 
 import argparse
@@ -20,6 +21,7 @@ from .engine import TradingEngine
 from .market import DexScreenerClient
 from .reporting import open_positions_table, summarize
 from .risk import RiskManager
+from .onchain import OnChainAuthorityProvider, apply_lp_policy
 from .safety import screen
 from .store import Store
 from .strategy import score_entry
@@ -41,8 +43,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="memecoin_bot")
     parser.add_argument(
         "command",
-        choices=("run", "scan", "report", "close", "simulate", "sweep"),
+        choices=(
+            "run", "scan", "report", "close", "simulate", "sweep", "verify",
+        ),
         help="what to do",
+    )
+    parser.add_argument(
+        "mint", nargs="?", help="token mint address (for the verify command)"
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -82,6 +89,12 @@ def main(argv: list[str] | None = None) -> int:
         print(run_sweep(settings))
         return 0
 
+    if args.command == "verify":
+        if not args.mint:
+            log.error("usage: python -m memecoin_bot verify <mint address>")
+            return 2
+        return _verify(settings, market, args.mint, log)
+
     if args.command == "scan":
         return _scan(settings, market, log)
 
@@ -90,10 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     risk = RiskManager.start(settings, time.time())
     engine = TradingEngine(
         settings, market, build_broker(settings), risk, store,
-        # Contract checks require an on-chain provider that is not wired in
-        # yet. Paper mode runs the market screen and reports the contract
-        # findings as warnings; live mode always enforces them.
-        enforce_contract_checks=settings.mode != PAPER,
+        OnChainAuthorityProvider(settings),
     )
 
     if args.command == "close":
@@ -111,14 +121,32 @@ def _scan(settings, market, log) -> int:
     candidates = market.discover()
     log.info("fetched %d candidate pair(s)", len(candidates))
 
+    provider = OnChainAuthorityProvider(settings)
     passed = 0
+    lp_only_blocks = 0
+
     for snapshot in candidates:
-        verdict = screen(snapshot, settings, require_contract_checks=False)
-        if not verdict.passed:
+        # Cheap market checks first, so the on-chain calls are only spent on
+        # candidates that could actually qualify. Public RPC rate limits.
+        market_verdict = screen(snapshot, settings, require_contract_checks=False)
+        if not market_verdict.passed:
             continue
         score, notes = score_entry(snapshot, settings)
         if score < settings.min_entry_score:
             continue
+
+        authority = apply_lp_policy(
+            provider.fetch(snapshot.mint), settings,
+            liquidity_usd=snapshot.liquidity_usd,
+            age_seconds=snapshot.age_seconds,
+        )
+        verdict = screen(snapshot, settings, authority)
+        if not verdict.passed:
+            if all("LP not confirmed" in r for r in verdict.failures):
+                lp_only_blocks += 1
+            log.debug("%s", verdict.describe())
+            continue
+
         passed += 1
         print(
             f"{snapshot.symbol:<12} score={score:.2f}  "
@@ -129,6 +157,62 @@ def _scan(settings, market, log) -> int:
 
     if not passed:
         print("Nothing passed the screen. That is a normal result.")
+    if lp_only_blocks:
+        print(
+            f"\n{lp_only_blocks} token(s) failed only the LP-lock check, which "
+            "cannot be\nproven from pair data. Set MEMEBOT_LP_POLICY=substitute "
+            "to accept pool\ndepth and age instead — a real loosening of "
+            "safety, documented in the README."
+        )
+    return 0
+
+
+def _verify(settings, market, mint: str, log) -> int:
+    """Run every available safety check against one token and explain it."""
+
+    snapshot = market.snapshot(mint)
+    if snapshot is None:
+        log.error("no market data for %s (bad address, or no live pair)", mint)
+        return 1
+
+    provider = OnChainAuthorityProvider(settings)
+    authority = apply_lp_policy(
+        provider.fetch(mint), settings,
+        liquidity_usd=snapshot.liquidity_usd, age_seconds=snapshot.age_seconds,
+    )
+    verdict = screen(snapshot, settings, authority)
+    score, notes = score_entry(snapshot, settings)
+
+    print(f"\n{snapshot.symbol}  ({mint})")
+    print("=" * 58)
+    print(f"Price           : ${snapshot.price_usd:.10f}")
+    print(f"Liquidity       : ${snapshot.liquidity_usd:,.0f}")
+    print(f"24h volume      : ${snapshot.volume_24h_usd:,.0f}")
+    print(f"Pair age        : {snapshot.age_seconds / 3_600:.1f}h")
+    print()
+    print("Contract checks:")
+    for label, value in (
+        ("mint authority revoked", authority.mint_authority_revoked),
+        ("freeze authority revoked", authority.freeze_authority_revoked),
+        ("LP locked or burned", authority.lp_locked_or_burned),
+        ("sell simulation passed", authority.sell_simulation_ok),
+    ):
+        mark = {True: "PASS", False: "FAIL", None: "UNKNOWN"}[value]
+        print(f"  {label:<26} {mark}")
+    holder = authority.top_holder_pct
+    print(
+        f"  {'top holder share':<26} "
+        + (f"{holder:.1%}" if holder is not None else "UNKNOWN")
+    )
+    print()
+    print(f"Entry score     : {score:.2f} ({', '.join(notes)})")
+    print(f"VERDICT         : {'TRADABLE' if verdict.passed else 'REJECTED'}")
+    if verdict.failures:
+        for reason in verdict.failures:
+            print(f"  - {reason}")
+    print()
+    print("UNKNOWN counts as a rejection. A check that could not be completed")
+    print("is never treated as a pass.")
     return 0
 
 

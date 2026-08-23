@@ -32,6 +32,7 @@ python -m memecoin_bot simulate   # one offline run on synthetic prices
 python -m memecoin_bot sweep      # many runs; read the spread, not one run
 python -m memecoin_bot scan       # screen the live market once, trade nothing
 python -m memecoin_bot run        # start the paper trading loop
+python -m memecoin_bot verify <mint>  # every safety check on one token
 python -m memecoin_bot report     # performance and open positions
 python -m memecoin_bot close      # flatten every open position
 ```
@@ -86,6 +87,50 @@ The daily loss limit halts new entries for the rest of the UTC day. Open
 positions are still managed while halted — the breaker stops the bot digging,
 it does not abandon what is already in the ground.
 
+## On-chain safety checks
+
+`OnChainAuthorityProvider` answers the contract-level questions by reading
+Solana directly and asking Jupiter for a sell quote:
+
+| Check | How it is answered | Catches |
+|---|---|---|
+| Mint authority revoked | SPL mint account, COption tag | Supply printed to zero under you |
+| Freeze authority revoked | SPL mint account, COption tag | Your holdings frozen in place |
+| Top holder share | `getTokenLargestAccounts` | A whale exiting into the pool |
+| Sell simulation | Jupiter quote, token to SOL | **Honeypots** — the only check that proves you can exit |
+| LP locked or burned | *not answerable from pair data* | Liquidity pulled outright |
+
+Everything fails closed. A timeout, an RPC error, an unexpected account
+layout, or a malformed response all produce "unknown", and the screen rejects
+unknown. There is no path where a failed lookup becomes a favourable answer.
+
+`verify` runs all of it against a single token and explains the verdict —
+useful for checking something by hand before trusting the bot with it.
+
+### The LP lock is honestly unknown
+
+Proving LP is locked means identifying the specific pool, finding its LP mint,
+and showing supply is burned or held by a known locker — and that differs per
+DEX. It cannot be done honestly from pair data, so it is reported as `None`
+rather than guessed. Two policies:
+
+- `MEMEBOT_LP_POLICY=strict` (default) — unknown LP blocks the trade. Correct,
+  and rejects most tokens.
+- `MEMEBOT_LP_POLICY=substitute` — accepts pool depth ($100k+) and age (6h+)
+  as a weaker proxy. **This is a real loosening of safety**, named explicitly
+  so nobody enables it by accident.
+
+Under `substitute`, the other four checks still apply in full — loosening the
+LP rule never launders a failure elsewhere.
+
+### Rate limits
+
+The default public Solana RPC throttles aggressively. `scan` runs the cheap
+market checks first and only spends RPC calls on candidates that could
+qualify, and caches results for 15 minutes. A paid endpoint
+(`MEMEBOT_RPC_ENDPOINT`) is required before live trading: a throttled safety
+check fails closed, so the bot simply stops finding anything.
+
 ## What is deliberately not implemented
 
 `LiveBroker` raises `NotImplementedError` rather than half-working. Finishing
@@ -99,13 +144,6 @@ it requires, at minimum:
 4. Signing and sending with a priority fee, then confirming the signature.
 5. Reconciling the actual filled amount against what was requested. On-chain
    fills routinely differ from quotes.
-
-The contract-level safety checks (`TokenAuthority`) are also unimplemented and
-default to "unknown", which the screen treats as **failure**, not as a pass.
-Refusing to trade what cannot be verified is the point: an unrevoked mint
-authority is how a token gets printed to zero underneath a position. Wiring a
-real provider means reading mint and pool accounts over RPC and running the
-sell simulation from step 3.
 
 Live mode additionally refuses to start unless
 `MEMEBOT_I_UNDERSTAND_THE_RISK=yes` is set.
