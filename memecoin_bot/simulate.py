@@ -182,7 +182,7 @@ def run_simulation(
 
     risk = RiskManager.start(settings, START)
     engine = TradingEngine(
-        settings, market, PaperBroker(settings), risk, store,
+        settings, market, PaperBroker(settings, seed=seed), risk, store,
         _CleanAuthority(),
     )
 
@@ -193,7 +193,7 @@ def run_simulation(
     market.step = steps - 1
     engine.close_all()
 
-    performance = summarize(store)
+    performance = summarize(store, settings.starting_bankroll_usd)
     kinds: dict[str, int] = {}
     for path in paths:
         kinds[path.kind] = kinds.get(path.kind, 0) + 1
@@ -213,9 +213,10 @@ def run_simulation(
         "",
         performance.render(),
         "",
-        "Read this as a check that the risk rules fire, not as a forecast.",
-        "Synthetic paths cannot reproduce real slippage, MEV, failed",
-        "transactions, or the speed at which real liquidity disappears.",
+        "Fills carry real constant-product impact, latency, adverse",
+        "selection, sandwich risk, failed transactions and Solana fees.",
+        "What stays synthetic is the price paths themselves, so read this",
+        "as evidence the risk rules fire — not as a forecast.",
     ]
     return "\n".join(lines)
 
@@ -238,6 +239,8 @@ def run_sweep(
     settings = settings or Settings()
     returns: list[float] = []
     worst_drawdown = 0.0
+    fills = failures = sandwiches = 0
+    fees = impact = 0.0
 
     for seed in range(1, seeds + 1):
         rng = random.Random(seed)
@@ -246,7 +249,7 @@ def run_sweep(
         store = Store(":memory:")
         risk = RiskManager.start(settings, START)
         engine = TradingEngine(
-            settings, market, PaperBroker(settings), risk, store,
+            settings, market, PaperBroker(settings, seed=seed), risk, store,
             _CleanAuthority(),
         )
 
@@ -261,12 +264,26 @@ def run_sweep(
         market.step = steps - 1
         engine.close_all()
         returns.append(risk.bankroll_usd / settings.starting_bankroll_usd - 1.0)
+
+        broker = engine.broker
+        fills += len(broker.fills)
+        failures += len(broker.failures)
+        sandwiches += sum(
+            1 for r in getattr(broker, "sandwich_log", []) if r
+        )
+        fees += sum(f.fee_usd for f in broker.fills)
+        fees += sum(r.network_fee_usd for r in broker.failures)
+        impact += sum(f.slippage_usd for f in broker.fills)
         store.close()
 
     returns.sort()
     losing = sum(1 for value in returns if value < 0)
     mean = sum(returns) / len(returns)
     median = returns[len(returns) // 2]
+
+    attempted = fills + failures
+    failure_rate = failures / attempted if attempted else 0.0
+    sandwich_rate = sandwiches / fills if fills else 0.0
 
     return "\n".join([
         "=" * 58,
@@ -277,6 +294,13 @@ def run_sweep(
         f"Best / worst    : {returns[-1]:+.2%} / {returns[0]:+.2%}",
         f"Losing runs     : {losing}/{seeds}",
         f"Worst drawdown  : {worst_drawdown:.2%}",
+        "",
+        "Execution reality:",
+        f"  transactions attempted : {attempted:,}",
+        f"  failed                 : {failures:,} ({failure_rate:.1%})",
+        f"  sandwiched buys        : {sandwiches:,} ({sandwich_rate:.1%} of fills)",
+        f"  paid in fees           : ${fees:,.2f}",
+        f"  lost to price impact   : ${impact:,.2f}",
         "",
         "If the mean is not clearly positive, the strategy has no edge and",
         "no amount of position sizing will create one. Sizing controls how",

@@ -1,6 +1,8 @@
 """End-to-end tests of the trading loop against a scripted market."""
 
-from conftest import FakeMarket, NOW, make_snapshot, safe_authority
+from conftest import (
+    FakeMarket, NOW, deterministic_settings, make_snapshot, safe_authority,
+)
 
 from memecoin_bot.broker import PaperBroker
 from memecoin_bot.config import Settings
@@ -24,7 +26,7 @@ class FixedAuthority:
 def build_engine(candidates=None, settings=None, authority=None, **kwargs):
     """Assemble an engine wired to fakes."""
 
-    settings = settings or Settings(min_entry_score=0.01)
+    settings = settings or deterministic_settings(min_entry_score=0.01)
     candidates = list(candidates or [])
     market = FakeMarket(
         candidates=candidates,
@@ -34,7 +36,7 @@ def build_engine(candidates=None, settings=None, authority=None, **kwargs):
     engine = TradingEngine(
         settings,
         market,
-        PaperBroker(settings),
+        PaperBroker(settings, seed=1),
         RiskManager.start(settings, NOW),
         store,
         FixedAuthority(authority or safe_authority()),
@@ -92,7 +94,7 @@ def test_the_highest_scoring_candidate_is_taken_first():
         mint="MintStrong", symbol="STRONG", price_change_5m=0.18,
         buys_5m=400, sells_5m=100, volume_24h_usd=900_000.0,
     )
-    settings = Settings(min_entry_score=0.01, max_open_positions=1)
+    settings = deterministic_settings(min_entry_score=0.01, max_open_positions=1)
     engine, _, _ = build_engine([weak, strong], settings=settings)
     engine.run_cycle(NOW)
 
@@ -204,7 +206,7 @@ def test_a_data_outage_does_not_open_positions():
 
 
 def test_the_daily_loss_limit_stops_new_entries():
-    settings = Settings(
+    settings = deterministic_settings(
         min_entry_score=0.01, max_open_positions=1, risk_fraction_per_trade=0.20
     )
     snapshot = make_snapshot(symbol="LOSS")
@@ -227,13 +229,13 @@ def test_the_daily_loss_limit_stops_new_entries():
 
 def test_positions_are_resumed_after_a_restart(tmp_path):
     path = str(tmp_path / "trading.sqlite3")
-    settings = Settings(min_entry_score=0.01, database_path=path)
+    settings = deterministic_settings(min_entry_score=0.01, database_path=path)
     snapshot = make_snapshot(symbol="KEEP")
     market = FakeMarket([snapshot], {snapshot.mint: snapshot})
 
     store = Store(path)
     first = TradingEngine(
-        settings, market, PaperBroker(settings),
+        settings, market, PaperBroker(settings, seed=1),
         RiskManager.start(settings, NOW), store, FixedAuthority(safe_authority()),
     )
     first.run_cycle(NOW)
@@ -242,7 +244,7 @@ def test_positions_are_resumed_after_a_restart(tmp_path):
 
     revived = Store(path)
     second = TradingEngine(
-        settings, market, PaperBroker(settings),
+        settings, market, PaperBroker(settings, seed=1),
         RiskManager.start(settings, NOW), revived,
         FixedAuthority(safe_authority()),
     )
@@ -403,7 +405,9 @@ def test_close_all_also_blocks_reentry():
 
 
 def test_cooldown_can_be_disabled_by_configuration():
-    settings = Settings(min_entry_score=0.01, reentry_cooldown_seconds=0)
+    settings = deterministic_settings(
+        min_entry_score=0.01, reentry_cooldown_seconds=0
+    )
     snapshot = make_snapshot(symbol="FREE")
     engine, market, store = build_engine([snapshot], settings=settings)
     engine.run_cycle(NOW)

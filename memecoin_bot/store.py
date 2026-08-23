@@ -48,6 +48,17 @@ CREATE TABLE IF NOT EXISTS fills (
 CREATE INDEX IF NOT EXISTS idx_fills_position ON fills (position_id);
 CREATE INDEX IF NOT EXISTS idx_fills_at ON fills (at);
 
+CREATE TABLE IF NOT EXISTS risk_state (
+    id                  INTEGER PRIMARY KEY CHECK (id = 1),
+    cash_usd            REAL    NOT NULL,
+    open_cost_usd       REAL    NOT NULL,
+    realized_today_usd  REAL    NOT NULL,
+    current_day         TEXT    NOT NULL,
+    halted              INTEGER NOT NULL DEFAULT 0,
+    halt_reason         TEXT    NOT NULL DEFAULT '',
+    updated_at          REAL    NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS mint_blocks (
     mint          TEXT    PRIMARY KEY,
     blocked_until REAL    NOT NULL,
@@ -219,6 +230,59 @@ class Store:
             )
             for row in rows
         ]
+
+    # --- Risk state -------------------------------------------------------
+
+    def save_risk_state(
+        self, *, cash_usd: float, open_cost_usd: float,
+        realized_today_usd: float, current_day: str, halted: bool,
+        halt_reason: str, at: float,
+    ) -> None:
+        """Persist the bankroll and circuit-breaker state.
+
+        Without this a restart re-reads the starting bankroll while also
+        reloading open positions, inventing capital on every restart and
+        silently clearing a loss halt.
+        """
+
+        self._connection.execute(
+            """
+            INSERT INTO risk_state (
+                id, cash_usd, open_cost_usd, realized_today_usd,
+                current_day, halted, halt_reason, updated_at
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                cash_usd           = excluded.cash_usd,
+                open_cost_usd      = excluded.open_cost_usd,
+                realized_today_usd = excluded.realized_today_usd,
+                current_day        = excluded.current_day,
+                halted             = excluded.halted,
+                halt_reason        = excluded.halt_reason,
+                updated_at         = excluded.updated_at
+            """,
+            (
+                cash_usd, open_cost_usd, realized_today_usd, current_day,
+                int(halted), halt_reason, at,
+            ),
+        )
+        self._connection.commit()
+
+    def load_risk_state(self) -> dict | None:
+        """Return the saved risk state, or ``None`` on a first run."""
+
+        row = self._connection.execute(
+            "SELECT * FROM risk_state WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "cash_usd": row["cash_usd"],
+            "open_cost_usd": row["open_cost_usd"],
+            "realized_today_usd": row["realized_today_usd"],
+            "current_day": row["current_day"],
+            "halted": bool(row["halted"]),
+            "halt_reason": row["halt_reason"],
+        }
 
     # --- Re-entry blocklist ----------------------------------------------
 

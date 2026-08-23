@@ -14,8 +14,11 @@ from typing import Any
 import base64
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
+
+from .ratelimit import TokenBucket, backoff_delays
 
 log = logging.getLogger(__name__)
 
@@ -68,10 +71,17 @@ class SolanaRpcClient:
     and a throttled safety check is a failed safety check.
     """
 
-    def __init__(self, endpoint: str, timeout: float = 10.0) -> None:
+    def __init__(
+        self, endpoint: str, timeout: float = 10.0,
+        requests_per_second: float = 4.0, max_retries: int = 3,
+    ) -> None:
         self.endpoint = endpoint
         self.timeout = timeout
+        self.max_retries = max_retries
         self._request_id = 0
+        self._bucket = TokenBucket(
+            rate=requests_per_second, capacity=max(1.0, requests_per_second)
+        )
 
     def _call(self, method: str, params: list[Any]) -> Any | None:
         """Issue one RPC call, returning ``None`` on any failure."""
@@ -93,14 +103,38 @@ class SolanaRpcClient:
             },
         )
 
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                if response.status != 200:
-                    log.warning("rpc %s returned HTTP %s", method, response.status)
+        body = None
+        delays = backoff_delays(self.max_retries)
+        for attempt in range(self.max_retries + 1):
+            self._bucket.acquire()
+            try:
+                with urllib.request.urlopen(
+                    request, timeout=self.timeout
+                ) as response:
+                    if response.status != 200:
+                        log.warning(
+                            "rpc %s returned HTTP %s", method, response.status
+                        )
+                        return None
+                    body = response.read().decode("utf-8", errors="replace")
+                break
+            except urllib.error.HTTPError as error:
+                # 429 and 5xx are worth retrying; a 4xx is a real refusal.
+                retryable = error.code == 429 or 500 <= error.code < 600
+                if not retryable or attempt >= self.max_retries:
+                    log.warning("rpc %s failed: HTTP %s", method, error.code)
                     return None
-                body = response.read().decode("utf-8", errors="replace")
-        except (urllib.error.URLError, TimeoutError, OSError) as error:
-            log.warning("rpc %s failed: %s", method, error)
+                log.debug(
+                    "rpc %s throttled (HTTP %s); retrying", method, error.code
+                )
+                time.sleep(delays[attempt])
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                if attempt >= self.max_retries:
+                    log.warning("rpc %s failed: %s", method, error)
+                    return None
+                time.sleep(delays[attempt])
+
+        if body is None:
             return None
 
         try:

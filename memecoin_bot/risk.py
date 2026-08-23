@@ -6,8 +6,23 @@ spend. It proposes a trade; the risk manager decides the size, or refuses.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Protocol
 
 from .config import Settings
+
+
+class RiskStateStore(Protocol):
+    """The persistence surface the risk manager needs."""
+
+    def save_risk_state(
+        self, *, cash_usd: float, open_cost_usd: float,
+        realized_today_usd: float, current_day: str, halted: bool,
+        halt_reason: str, at: float,
+    ) -> None:
+        """Persist bankroll and circuit-breaker state."""
+
+    def load_risk_state(self) -> dict | None:
+        """Return saved state, or ``None`` on a first run."""
 
 
 def utc_day(at: float) -> str:
@@ -41,6 +56,52 @@ class RiskManager:
             settings=settings,
             cash_usd=settings.starting_bankroll_usd,
             current_day=utc_day(at),
+        )
+
+    @classmethod
+    def restore(
+        cls, settings: Settings, at: float, store: "RiskStateStore | None"
+    ) -> "RiskManager":
+        """Restore saved state, or start fresh when there is none.
+
+        A restart that re-reads the starting bankroll while also reloading
+        open positions invents capital every time, and silently clears a loss
+        halt. On a host that sleeps whenever it is idle, that is not an edge
+        case -- it is the normal path.
+        """
+
+        if store is None:
+            return cls.start(settings, at)
+
+        saved = store.load_risk_state()
+        if saved is None:
+            manager = cls.start(settings, at)
+            manager.persist(store, at)
+            return manager
+
+        return cls(
+            settings=settings,
+            cash_usd=saved["cash_usd"],
+            open_cost_usd=saved["open_cost_usd"],
+            realized_today_usd=saved["realized_today_usd"],
+            current_day=saved["current_day"],
+            halted=saved["halted"],
+            halt_reason=saved["halt_reason"],
+        )
+
+    def persist(self, store: "RiskStateStore | None", at: float) -> None:
+        """Write current state through to durable storage."""
+
+        if store is None:
+            return
+        store.save_risk_state(
+            cash_usd=self.cash_usd,
+            open_cost_usd=self.open_cost_usd,
+            realized_today_usd=self.realized_today_usd,
+            current_day=self.current_day,
+            halted=self.halted,
+            halt_reason=self.halt_reason,
+            at=at,
         )
 
     @property

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import logging
 import time
 
-from .broker import Broker
+from .broker import Broker, ExecutionFailed
 from .config import Settings
 from .market import MarketData
 from .models import (
@@ -34,6 +34,8 @@ class CycleReport:
     rejected: int = 0
     entered: list[str] = field(default_factory=list)
     exited: list[tuple[str, ExitReason]] = field(default_factory=list)
+    failed_entries: list[str] = field(default_factory=list)
+    failed_exits: list[tuple[str, ExitReason]] = field(default_factory=list)
     skipped_reason: str = ""
 
 
@@ -70,7 +72,8 @@ class TradingEngine:
         at = time.time() if now is None else now
         report = CycleReport()
 
-        self.risk.roll_day(at)
+        if self.risk.roll_day(at):
+            self.risk.persist(self.store, at)
         self._manage_positions(at, report)
         self._seek_entries(at, report)
         return report
@@ -119,13 +122,44 @@ class TradingEngine:
         if quantity <= 0:
             return
 
-        fill = self.broker.sell(snapshot, quantity, reason=decision.reason.value)
+        # A stop-loss or rug exit accepts a worse price rather than not
+        # getting out; a profit-taking sell does not need to.
+        urgent = decision.reason in (
+            ExitReason.STOP_LOSS,
+            ExitReason.LIQUIDITY_COLLAPSE,
+            ExitReason.TRAILING_STOP,
+        )
+
+        # A full exit closes the token account, reclaiming the rent deposit.
+        closing_out = decision.is_full_exit or quantity >= position.quantity
+
+        try:
+            fill = self.broker.sell(
+                snapshot, quantity, reason=decision.reason.value,
+                urgent=urgent, close_account=closing_out,
+            )
+        except ExecutionFailed as error:
+            # The position is still open. Fees for a landed-but-reverted
+            # transaction are gone regardless, and the exit is retried next
+            # cycle -- which is exactly what happens live, and why a stop is
+            # a target rather than a guarantee.
+            self._charge_failed_transaction(error, at)
+            report.failed_exits.append((position.symbol, decision.reason))
+            log.warning(
+                "exit for %s failed (%s); still holding %.4f units",
+                position.symbol,
+                error.result.failure.value if error.result.failure else "?",
+                position.quantity,
+            )
+            return
+
         self.store.record_fill(fill, position.position_id)
 
         proceeds = fill.net_usd
         # Cost basis for the slice being sold, at the average entry price.
         cost_basis = position.entry_price_usd * quantity
         self.risk.record_sell(proceeds, cost_basis, at)
+        self.risk.persist(self.store, at)
 
         position.quantity -= quantity
         position.realized_usd += proceeds - cost_basis
@@ -152,6 +186,23 @@ class TradingEngine:
                 position.symbol, decision.reason.value, proceeds,
                 position.quantity, decision.note,
             )
+
+    def _charge_failed_transaction(
+        self, error: ExecutionFailed, at: float
+    ) -> None:
+        """Deduct the fees burned by a transaction that did not execute.
+
+        A transaction that lands and reverts still pays its fees. Ignoring
+        that would make paper results better than live ones for no reason
+        other than bookkeeping.
+        """
+
+        burned = error.result.network_fee_usd
+        if burned <= 0:
+            return
+        self.risk.cash_usd -= burned
+        self.risk.realized_today_usd -= burned
+        self.risk.persist(self.store, at)
 
     def _block_reentry(self, mint: str, reason: ExitReason, at: float) -> None:
         """Bar a mint after exiting it.
@@ -237,14 +288,21 @@ class TradingEngine:
         snapshot: TokenSnapshot = entry.snapshot
         size_usd = self.risk.position_size_usd()
 
-        fill = self.broker.buy(
-            snapshot, size_usd, reason=f"score={entry.score:.2f}"
-        )
+        try:
+            fill = self.broker.buy(
+                snapshot, size_usd, reason=f"score={entry.score:.2f}"
+            )
+        except ExecutionFailed as error:
+            self._charge_failed_transaction(error, at)
+            report.failed_entries.append(snapshot.symbol)
+            return
+
         if fill.quantity <= 0:
             log.warning("buy for %s returned no quantity", snapshot.symbol)
             return
 
         self.risk.record_buy(fill.net_usd)
+        self.risk.persist(self.store, at)
 
         position = Position(
             mint=snapshot.mint,
@@ -279,7 +337,18 @@ class TradingEngine:
             if snapshot is None:
                 log.warning("cannot price %s; leaving open", position.symbol)
                 continue
-            fill = self.broker.sell(snapshot, position.quantity, reason=reason.value)
+            try:
+                fill = self.broker.sell(
+                    snapshot, position.quantity, reason=reason.value,
+                    urgent=True, close_account=True,
+                )
+            except ExecutionFailed as error:
+                self._charge_failed_transaction(error, at)
+                log.warning(
+                    "could not flatten %s (%s); still open", position.symbol,
+                    error.result.failure.value if error.result.failure else "?",
+                )
+                continue
             self.store.record_fill(fill, position.position_id)
             self.risk.record_sell(
                 fill.net_usd, position.entry_price_usd * position.quantity, at

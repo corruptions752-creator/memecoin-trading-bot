@@ -69,10 +69,39 @@ class Settings:
     """Refuse to buy a candle that has already gone vertical. Chasing a
     spike is the single most reliable way to become someone's exit."""
 
-    # --- Execution assumptions (paper) ------------------------------------
-    assumed_slippage_bps: float = 150.0
-    assumed_fee_bps: float = 30.0
-    priority_fee_usd: float = 0.02
+    # --- Execution realism -------------------------------------------------
+    # These model the gap between a decision and a confirmed fill. Every one
+    # of them makes results worse; that is deliberate. A strategy that only
+    # survives without them was never viable.
+    sol_price_usd: float = 150.0
+    """Used to price network fees and rent. Set it near the real SOL price;
+    fees are denominated in SOL, not dollars."""
+    pool_fee_bps: float = 25.0
+    """AMM swap fee. Raydium and Orca standard pools charge 0.25%."""
+    priority_fee_lamports: float = 200_000.0
+    """Priority fee per transaction. Meme coin trading is uncompetitive
+    below roughly this level."""
+    priority_fee_volatility: float = 0.8
+    """Lognormal spread on the priority fee. Fees spike under congestion,
+    which is exactly when the bot most wants to transact."""
+    execution_latency_seconds: float = 1.2
+    """Median decision-to-confirmation time."""
+    adverse_selection_bps: float = 40.0
+    """Expected adverse price move while a transaction is in flight. The bot
+    buys strength, and by the time a signal is visible to us it is visible to
+    everyone else too."""
+    max_slippage_pct: float = 0.05
+    """Ordinary slippage tolerance. Exceeding it fails the transaction."""
+    urgent_slippage_pct: float = 0.25
+    """Tolerance for stop-loss and rug exits, where not getting out is worse
+    than getting out badly."""
+    tx_drop_rate: float = 0.04
+    """Share of transactions that never land at all."""
+    sandwich_base_rate: float = 0.25
+    """Chance of being sandwiched on a buy worth 1% of the pool, scaled by
+    actual size. Sells are not sandwiched; attackers front-run buys."""
+    sandwich_size_multiple: float = 2.0
+    """Attacker order size as a multiple of ours."""
 
     # --- On-chain verification --------------------------------------------
     rpc_endpoint: str = "https://api.mainnet-beta.solana.com"

@@ -22,6 +22,27 @@ def settings() -> Settings:
     return Settings()
 
 
+def deterministic_settings(**overrides) -> Settings:
+    """Settings with every stochastic execution effect switched off.
+
+    Engine and strategy tests are about decision logic, so they must not be
+    at the mercy of a simulated sandwich attack or a dropped transaction.
+    Execution realism is tested directly in test_execution.py instead.
+    """
+
+    defaults = dict(
+        tx_drop_rate=0.0,
+        sandwich_base_rate=0.0,
+        execution_latency_seconds=0.0,
+        adverse_selection_bps=0.0,
+        priority_fee_volatility=0.0,
+        max_slippage_pct=0.95,
+        urgent_slippage_pct=0.95,
+    )
+    defaults.update(overrides)
+    return Settings(**defaults)
+
+
 def make_snapshot(**overrides) -> TokenSnapshot:
     """Build a snapshot that passes the market screen unless overridden."""
 

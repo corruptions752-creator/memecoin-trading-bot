@@ -4,11 +4,46 @@ The numbers here are the whole point of paper mode. Read them before wiring
 a wallet, and read the loss columns first.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import sqlite3
 
 from .models import Side
 from .store import Store
+
+
+def max_drawdown(equity_curve: list[float]) -> float:
+    """Deepest peak-to-trough fall in an equity series, as a fraction.
+
+    The single most useful number in the report. Average return says what
+    happened; drawdown says whether you could have stayed in the seat while
+    it happened.
+    """
+
+    if not equity_curve:
+        return 0.0
+    peak = equity_curve[0]
+    worst = 0.0
+    for value in equity_curve:
+        peak = max(peak, value)
+        if peak > 0:
+            worst = min(worst, value / peak - 1.0)
+    # Equity cannot fall below zero, so neither can drawdown fall below -100%.
+    return max(worst, -1.0)
+
+
+def sharpe_ratio(returns: list[float]) -> float:
+    """Mean return over its standard deviation.
+
+    Unannualized on purpose: annualizing a handful of meme coin trades
+    produces an impressive number that means nothing.
+    """
+
+    if len(returns) < 2:
+        return 0.0
+    mean = sum(returns) / len(returns)
+    variance = sum((r - mean) ** 2 for r in returns) / (len(returns) - 1)
+    deviation = variance ** 0.5
+    return mean / deviation if deviation > 0 else 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +61,13 @@ class Performance:
     average_win_usd: float
     average_loss_usd: float
     exit_breakdown: dict[str, int]
+    pnl_by_exit: dict[str, float] = field(default_factory=dict)
+    max_drawdown: float = 0.0
+    sharpe: float = 0.0
+    expectancy_usd: float = 0.0
+    """Average dollars per trade. Negative means the strategy loses money
+    however the wins are dressed up."""
+    largest_loss_streak: int = 0
 
     @property
     def win_rate(self) -> float:
@@ -61,6 +103,10 @@ class Performance:
             f"Average win     : ${self.average_win_usd:,.2f}",
             f"Average loss    : ${self.average_loss_usd:,.2f}",
             f"Best / worst    : ${self.best_usd:,.2f} / ${self.worst_usd:,.2f}",
+            f"Expectancy      : ${self.expectancy_usd:,.2f} per trade",
+            f"Max drawdown    : {self.max_drawdown:.2%}",
+            f"Sharpe (raw)    : {self.sharpe:.2f}",
+            f"Worst streak    : {self.largest_loss_streak} losses in a row",
             f"Costs paid      : ${self.total_fees_usd:,.2f} fees, "
             f"${self.total_slippage_usd:,.2f} slippage",
         ]
@@ -69,12 +115,19 @@ class Performance:
             for reason, count in sorted(
                 self.exit_breakdown.items(), key=lambda item: -item[1]
             ):
-                lines.append(f"  {reason:<20} {count}")
+                pnl = self.pnl_by_exit.get(reason, 0.0)
+                lines.append(f"  {reason:<20}{count:>4}   ${pnl:>10,.2f}")
         return "\n".join(lines)
 
 
-def summarize(store: Store) -> Performance:
-    """Compute performance statistics from persisted trades."""
+def summarize(store: Store, starting_bankroll_usd: float = 0.0) -> Performance:
+    """Compute performance statistics from persisted trades.
+
+    ``starting_bankroll_usd`` anchors the equity curve. Without it drawdown
+    would be measured against a curve starting at zero, where the first
+    losing trade divides by a near-zero peak and reports impossible values
+    like -183%.
+    """
 
     closed: list[sqlite3.Row] = store.closed_positions()
     results = [row["realized_usd"] for row in closed]
@@ -87,9 +140,30 @@ def summarize(store: Store) -> Performance:
     slippage = sum(fill.slippage_usd for fill in fills)
 
     breakdown: dict[str, int] = {}
+    pnl_by_exit: dict[str, float] = {}
     for row in closed:
         reason = row["close_reason"] or "unknown"
         breakdown[reason] = breakdown.get(reason, 0) + 1
+        pnl_by_exit[reason] = pnl_by_exit.get(reason, 0.0) + row["realized_usd"]
+
+    # Equity curve anchored at starting capital, in close order. Falling
+    # back to the total risked keeps drawdown bounded when no bankroll is
+    # supplied, rather than dividing by a peak of zero.
+    anchor = starting_bankroll_usd
+    if anchor <= 0:
+        anchor = max(sum(abs(v) for v in results), 1.0)
+    equity, running = [anchor], anchor
+    for value in results:
+        running += value
+        equity.append(running)
+
+    streak = worst_streak = 0
+    for value in results:
+        if value <= 0:
+            streak += 1
+            worst_streak = max(worst_streak, streak)
+        else:
+            streak = 0
 
     return Performance(
         trades=len(closed),
@@ -103,6 +177,11 @@ def summarize(store: Store) -> Performance:
         average_win_usd=sum(wins) / len(wins) if wins else 0.0,
         average_loss_usd=sum(losses) / len(losses) if losses else 0.0,
         exit_breakdown=breakdown,
+        pnl_by_exit=pnl_by_exit,
+        max_drawdown=max_drawdown(equity) if results else 0.0,
+        sharpe=sharpe_ratio(results),
+        expectancy_usd=sum(results) / len(results) if results else 0.0,
+        largest_loss_streak=worst_streak,
     )
 
 

@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "report":
         print(open_positions_table(store))
         print()
-        print(summarize(store).render())
+        print(summarize(store, settings.starting_bankroll_usd).render())
         return 0
 
     if args.command == "simulate":
@@ -100,7 +100,9 @@ def main(argv: list[str] | None = None) -> int:
 
     import time
 
-    risk = RiskManager.start(settings, time.time())
+    # Restore saved bankroll and circuit-breaker state. Starting fresh while
+    # reloading open positions would invent capital on every restart.
+    risk = RiskManager.restore(settings, time.time(), store)
     engine = TradingEngine(
         settings, market, build_broker(settings), risk, store,
         OnChainAuthorityProvider(settings),

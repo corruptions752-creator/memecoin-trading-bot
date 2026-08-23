@@ -39,6 +39,40 @@ python -m memecoin_bot close      # flatten every open position
 
 No dependencies to install. The bot uses only the standard library.
 
+## Execution realism
+
+Paper fills are not "the quoted price, instantly, for free". Every order runs
+through a simulator that models what actually happens between a decision and a
+confirmation:
+
+| Effect | How it is modelled |
+|---|---|
+| Price impact | Real constant-product AMM math from inferred pool reserves |
+| Latency | Log-normal, ~1.2s median — price moves while the tx is in flight |
+| Adverse selection | In-flight drift is biased against you; the bot buys strength |
+| Sandwich attacks | Probability scales with order size relative to the pool |
+| Failed transactions | Slippage exceeded, dropped on congestion — fees still burn |
+| Pool fee | 0.25%, the Raydium/Orca standard |
+| Priority fee | Log-normal — spikes under congestion, when you most want to trade |
+| Account rent | Deposited on first buy, refunded when the account is closed |
+
+Two consequences worth knowing:
+
+**A failed sell means you still hold the position.** The bot retries next
+cycle. That is why a stop-loss is a *target*, not a guarantee — the same is
+true live, and a simulator that pretends otherwise is lying to you.
+
+**Constant-product math is not a flat percentage.** The difference is large
+and runs both ways:
+
+| Pool | Trade | Real impact | A flat 1.5% estimate |
+|---|---|---|---|
+| $25k | $1,000 | **8.25%** | 1.5% — 5x too optimistic |
+| $1M | $10 | **0.25%** | 1.5% — 6x too pessimistic |
+
+The thin-pool row is the dangerous one, and it is exactly where this strategy
+trades.
+
 ## How a trade is decided
 
 ```
@@ -77,6 +111,7 @@ one bad trade into a grinding loop.
 | Daily loss limit | 5%, then halt | `MEMEBOT_DAILY_LOSS_LIMIT_PCT` |
 | Re-entry cooldown | 6h | `MEMEBOT_REENTRY_COOLDOWN_SECONDS` |
 | Min liquidity | $25,000 | `MEMEBOT_MIN_LIQUIDITY_USD` |
+| SOL price (for fees) | $150 | `MEMEBOT_SOL_PRICE_USD` |
 | Starting bankroll | $1,000 (paper) | `MEMEBOT_BANKROLL_USD` |
 
 Sizing is a fixed fraction of the **whole bankroll**, not of free cash, so
@@ -86,6 +121,12 @@ losses and grows after wins automatically.
 The daily loss limit halts new entries for the rest of the UTC day. Open
 positions are still managed while halted — the breaker stops the bot digging,
 it does not abandon what is already in the ground.
+
+All of this state — bankroll, open positions, the halt, the day's realized
+P&L, the re-entry blocklist — is persisted to SQLite and restored on startup.
+A restart that re-read the starting bankroll while reloading open positions
+would invent capital every time, which on a host that sleeps when idle is the
+normal path rather than an edge case.
 
 ## On-chain safety checks
 
@@ -154,7 +195,11 @@ Live mode additionally refuses to start unless
 python -m pytest tests/ -q
 ```
 
-The suite covers the safety screen, sizing and the circuit breaker, the exit
-ladder, execution costs, persistence across restarts, feed parsing against
-malformed data, and end-to-end cycles including stop-outs, partial profit
-taking, rugs, and re-entry blocking.
+269 tests covering the safety screen, sizing and the circuit breaker, the exit
+ladder, AMM math, execution realism (failures, sandwiches, latency, rent),
+state persistence across restarts, RPC rate limiting and retry, feed parsing
+against malformed data, and end-to-end cycles including stop-outs, partial
+profit taking, rugs, and re-entry blocking.
+
+Engine tests run with stochastic execution effects switched off, so they test
+decision logic rather than luck; execution realism is tested directly.
