@@ -1,0 +1,295 @@
+"""SQLite persistence for positions and fills.
+
+The bot must survive a restart without losing track of open positions, which
+on a free host that sleeps is a routine event, not an edge case.
+"""
+
+from pathlib import Path
+import sqlite3
+
+from .models import ExitReason, Fill, Position, Side
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS positions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    mint                TEXT    NOT NULL,
+    symbol              TEXT    NOT NULL,
+    entry_price_usd     REAL    NOT NULL,
+    quantity            REAL    NOT NULL,
+    initial_quantity    REAL    NOT NULL,
+    cost_usd            REAL    NOT NULL,
+    opened_at           REAL    NOT NULL,
+    entry_liquidity_usd REAL    NOT NULL DEFAULT 0,
+    peak_price_usd      REAL    NOT NULL DEFAULT 0,
+    realized_usd        REAL    NOT NULL DEFAULT 0,
+    took_first_profit   INTEGER NOT NULL DEFAULT 0,
+    closed_at           REAL,
+    close_reason        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_open
+    ON positions (closed_at) WHERE closed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS fills (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    position_id   INTEGER REFERENCES positions (id),
+    mint          TEXT    NOT NULL,
+    symbol        TEXT    NOT NULL,
+    side          TEXT    NOT NULL,
+    price_usd     REAL    NOT NULL,
+    quantity      REAL    NOT NULL,
+    gross_usd     REAL    NOT NULL,
+    fee_usd       REAL    NOT NULL,
+    slippage_usd  REAL    NOT NULL,
+    at            REAL    NOT NULL,
+    reason        TEXT    NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_fills_position ON fills (position_id);
+CREATE INDEX IF NOT EXISTS idx_fills_at ON fills (at);
+
+CREATE TABLE IF NOT EXISTS mint_blocks (
+    mint          TEXT    PRIMARY KEY,
+    blocked_until REAL    NOT NULL,
+    permanent     INTEGER NOT NULL DEFAULT 0,
+    reason        TEXT    NOT NULL DEFAULT '',
+    created_at    REAL    NOT NULL
+);
+"""
+
+
+class Store:
+    """Durable record of what the bot holds and what it has traded."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        if path != ":memory:":
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self._connection = sqlite3.connect(path)
+        self._connection.row_factory = sqlite3.Row
+        self._connection.executescript(_SCHEMA)
+        self._connection.commit()
+
+    def close(self) -> None:
+        """Close the underlying connection."""
+
+        self._connection.close()
+
+    # --- Positions --------------------------------------------------------
+
+    def open_position(self, position: Position) -> Position:
+        """Persist a new position and return it with its assigned id."""
+
+        cursor = self._connection.execute(
+            """
+            INSERT INTO positions (
+                mint, symbol, entry_price_usd, quantity, initial_quantity,
+                cost_usd, opened_at, entry_liquidity_usd, peak_price_usd,
+                realized_usd, took_first_profit
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                position.mint,
+                position.symbol,
+                position.entry_price_usd,
+                position.quantity,
+                position.initial_quantity,
+                position.cost_usd,
+                position.opened_at,
+                position.entry_liquidity_usd,
+                position.peak_price_usd,
+                position.realized_usd,
+                int(position.took_first_profit),
+            ),
+        )
+        self._connection.commit()
+        position.position_id = int(cursor.lastrowid)
+        return position
+
+    def update_position(self, position: Position) -> None:
+        """Write back the mutable fields of an open position."""
+
+        if position.position_id is None:
+            raise ValueError("cannot update a position that was never stored")
+        self._connection.execute(
+            """
+            UPDATE positions
+               SET quantity = ?, peak_price_usd = ?, realized_usd = ?,
+                   took_first_profit = ?
+             WHERE id = ?
+            """,
+            (
+                position.quantity,
+                position.peak_price_usd,
+                position.realized_usd,
+                int(position.took_first_profit),
+                position.position_id,
+            ),
+        )
+        self._connection.commit()
+
+    def close_position(
+        self, position: Position, reason: ExitReason, at: float
+    ) -> None:
+        """Mark a position closed."""
+
+        if position.position_id is None:
+            raise ValueError("cannot close a position that was never stored")
+        self._connection.execute(
+            """
+            UPDATE positions
+               SET quantity = ?, realized_usd = ?, peak_price_usd = ?,
+                   took_first_profit = ?, closed_at = ?, close_reason = ?
+             WHERE id = ?
+            """,
+            (
+                position.quantity,
+                position.realized_usd,
+                position.peak_price_usd,
+                int(position.took_first_profit),
+                at,
+                reason.value,
+                position.position_id,
+            ),
+        )
+        self._connection.commit()
+
+    def load_open_positions(self) -> list[Position]:
+        """Rehydrate every position that has not been closed."""
+
+        rows = self._connection.execute(
+            "SELECT * FROM positions WHERE closed_at IS NULL ORDER BY id"
+        ).fetchall()
+        return [self._row_to_position(row) for row in rows]
+
+    def closed_positions(self) -> list[sqlite3.Row]:
+        """Return closed position rows, oldest first, for reporting."""
+
+        return self._connection.execute(
+            "SELECT * FROM positions WHERE closed_at IS NOT NULL "
+            "ORDER BY closed_at"
+        ).fetchall()
+
+    # --- Fills ------------------------------------------------------------
+
+    def record_fill(self, fill: Fill, position_id: int | None) -> None:
+        """Append a fill to the trade log."""
+
+        self._connection.execute(
+            """
+            INSERT INTO fills (
+                position_id, mint, symbol, side, price_usd, quantity,
+                gross_usd, fee_usd, slippage_usd, at, reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                position_id,
+                fill.mint,
+                fill.symbol,
+                fill.side.value,
+                fill.price_usd,
+                fill.quantity,
+                fill.gross_usd,
+                fill.fee_usd,
+                fill.slippage_usd,
+                fill.at,
+                fill.reason,
+            ),
+        )
+        self._connection.commit()
+
+    def all_fills(self) -> list[Fill]:
+        """Return every recorded fill, oldest first."""
+
+        rows = self._connection.execute(
+            "SELECT * FROM fills ORDER BY at, id"
+        ).fetchall()
+        return [
+            Fill(
+                mint=row["mint"],
+                symbol=row["symbol"],
+                side=Side(row["side"]),
+                price_usd=row["price_usd"],
+                quantity=row["quantity"],
+                gross_usd=row["gross_usd"],
+                fee_usd=row["fee_usd"],
+                slippage_usd=row["slippage_usd"],
+                at=row["at"],
+                reason=row["reason"],
+            )
+            for row in rows
+        ]
+
+    # --- Re-entry blocklist ----------------------------------------------
+
+    def block_mint(
+        self, mint: str, blocked_until: float, reason: str, *,
+        permanent: bool = False, at: float = 0.0,
+    ) -> None:
+        """Bar a mint from being re-entered until ``blocked_until``.
+
+        An existing block is only ever extended, never shortened, so a
+        permanent rug ban cannot be downgraded by a later ordinary exit.
+        """
+
+        existing = self._connection.execute(
+            "SELECT blocked_until, permanent FROM mint_blocks WHERE mint = ?",
+            (mint,),
+        ).fetchone()
+        if existing is not None:
+            if existing["permanent"]:
+                return
+            blocked_until = max(blocked_until, existing["blocked_until"])
+
+        self._connection.execute(
+            """
+            INSERT INTO mint_blocks (mint, blocked_until, permanent, reason,
+                                     created_at)
+                 VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (mint) DO UPDATE SET
+                blocked_until = excluded.blocked_until,
+                permanent     = excluded.permanent,
+                reason        = excluded.reason
+            """,
+            (mint, blocked_until, int(permanent), reason, at or blocked_until),
+        )
+        self._connection.commit()
+
+    def blocked_mints(self, at: float) -> dict[str, str]:
+        """Mints that may not be bought right now, mapped to the reason."""
+
+        rows = self._connection.execute(
+            "SELECT mint, reason FROM mint_blocks "
+            "WHERE permanent = 1 OR blocked_until > ?",
+            (at,),
+        ).fetchall()
+        return {row["mint"]: row["reason"] for row in rows}
+
+    def is_blocked(self, mint: str, at: float) -> bool:
+        """Whether ``mint`` is currently barred from re-entry."""
+
+        row = self._connection.execute(
+            "SELECT 1 FROM mint_blocks WHERE mint = ? "
+            "AND (permanent = 1 OR blocked_until > ?)",
+            (mint, at),
+        ).fetchone()
+        return row is not None
+
+    @staticmethod
+    def _row_to_position(row: sqlite3.Row) -> Position:
+        """Build a :class:`Position` from a database row."""
+
+        return Position(
+            mint=row["mint"],
+            symbol=row["symbol"],
+            entry_price_usd=row["entry_price_usd"],
+            quantity=row["quantity"],
+            cost_usd=row["cost_usd"],
+            opened_at=row["opened_at"],
+            entry_liquidity_usd=row["entry_liquidity_usd"],
+            peak_price_usd=row["peak_price_usd"],
+            realized_usd=row["realized_usd"],
+            took_first_profit=bool(row["took_first_profit"]),
+            initial_quantity=row["initial_quantity"],
+            position_id=row["id"],
+        )

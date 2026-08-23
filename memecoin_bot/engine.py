@@ -1,0 +1,305 @@
+"""The trading loop.
+
+Order of operations in a cycle is deliberate: manage open positions *before*
+looking for new ones. When the data feed is degraded or the bankroll is under
+pressure, the bot's first duty is to the money already at risk.
+"""
+
+from dataclasses import dataclass, field
+import logging
+import time
+
+from .broker import Broker
+from .config import Settings
+from .market import MarketData
+from .models import (
+    ExitReason,
+    Position,
+    Side,
+    TokenSnapshot,
+)
+from .risk import RiskManager
+from .safety import AuthorityProvider, UnknownAuthorityProvider, screen
+from .store import Store
+from .strategy import decide_entry, decide_exit
+
+log = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class CycleReport:
+    """What one pass of the loop did, for logging and tests."""
+
+    scanned: int = 0
+    rejected: int = 0
+    entered: list[str] = field(default_factory=list)
+    exited: list[tuple[str, ExitReason]] = field(default_factory=list)
+    skipped_reason: str = ""
+
+
+class TradingEngine:
+    """Coordinates data, safety, strategy, risk, execution, and persistence."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        market: MarketData,
+        broker: Broker,
+        risk: RiskManager,
+        store: Store,
+        authority: AuthorityProvider | None = None,
+        *,
+        enforce_contract_checks: bool = True,
+    ) -> None:
+        self.settings = settings
+        self.market = market
+        self.broker = broker
+        self.risk = risk
+        self.store = store
+        self.authority = authority or UnknownAuthorityProvider()
+        self.enforce_contract_checks = enforce_contract_checks
+        self.positions: list[Position] = store.load_open_positions()
+        if self.positions:
+            log.info("resumed %d open position(s)", len(self.positions))
+
+    # --- Cycle ------------------------------------------------------------
+
+    def run_cycle(self, now: float | None = None) -> CycleReport:
+        """Manage open positions, then consider new entries once."""
+
+        at = time.time() if now is None else now
+        report = CycleReport()
+
+        self.risk.roll_day(at)
+        self._manage_positions(at, report)
+        self._seek_entries(at, report)
+        return report
+
+    def run_forever(self) -> None:
+        """Loop until interrupted, sleeping between cycles."""
+
+        log.info(
+            "starting in %s mode with $%.2f bankroll",
+            self.settings.mode, self.risk.bankroll_usd,
+        )
+        try:
+            while True:
+                try:
+                    self.run_cycle()
+                except Exception:  # noqa: BLE001 - a cycle must never kill the loop
+                    log.exception("cycle failed; continuing")
+                time.sleep(self.settings.poll_seconds)
+        except KeyboardInterrupt:
+            log.info("interrupted; open positions remain recorded in the store")
+
+    # --- Position management ----------------------------------------------
+
+    def _manage_positions(self, at: float, report: CycleReport) -> None:
+        """Apply exit rules to every open position."""
+
+        for position in list(self.positions):
+            snapshot = self.market.snapshot(position.mint)
+            if snapshot is None:
+                # No quote this cycle. Hold rather than dumping blind; the
+                # time stop will still force the issue if it persists.
+                log.warning("no snapshot for %s; holding", position.symbol)
+                continue
+
+            decision = decide_exit(position, snapshot, self.settings, at)
+            if decision is None:
+                self.store.update_position(position)
+                continue
+
+            self._execute_exit(position, snapshot, decision, at, report)
+
+    def _execute_exit(self, position, snapshot, decision, at, report) -> None:
+        """Sell part or all of a position and book the result."""
+
+        quantity = position.quantity * min(1.0, max(0.0, decision.fraction))
+        if quantity <= 0:
+            return
+
+        fill = self.broker.sell(snapshot, quantity, reason=decision.reason.value)
+        self.store.record_fill(fill, position.position_id)
+
+        proceeds = fill.net_usd
+        # Cost basis for the slice being sold, at the average entry price.
+        cost_basis = position.entry_price_usd * quantity
+        self.risk.record_sell(proceeds, cost_basis, at)
+
+        position.quantity -= quantity
+        position.realized_usd += proceeds - cost_basis
+
+        if decision.reason is ExitReason.TAKE_PROFIT:
+            position.took_first_profit = True
+
+        closing = decision.is_full_exit or position.quantity <= 1e-12
+        if closing:
+            self._block_reentry(position.mint, decision.reason, at)
+            self.store.close_position(position, decision.reason, at)
+            self.positions.remove(position)
+            report.exited.append((position.symbol, decision.reason))
+            log.info(
+                "CLOSED %s (%s): realized $%.2f — %s",
+                position.symbol, decision.reason.value,
+                position.realized_usd, decision.note,
+            )
+        else:
+            self.store.update_position(position)
+            report.exited.append((position.symbol, decision.reason))
+            log.info(
+                "REDUCED %s (%s): banked $%.2f, %.4f units left — %s",
+                position.symbol, decision.reason.value, proceeds,
+                position.quantity, decision.note,
+            )
+
+    def _block_reentry(self, mint: str, reason: ExitReason, at: float) -> None:
+        """Bar a mint after exiting it.
+
+        A drained pool earns a permanent ban; everything else earns a timed
+        cooldown so the bot cannot stop out and immediately buy back in.
+        """
+
+        if (
+            reason is ExitReason.LIQUIDITY_COLLAPSE
+            and self.settings.ban_after_liquidity_collapse
+        ):
+            self.store.block_mint(
+                mint, at, f"liquidity collapse at {at:.0f}",
+                permanent=True, at=at,
+            )
+            log.info("permanently blocking %s after liquidity collapse", mint)
+            return
+
+        cooldown = self.settings.reentry_cooldown_seconds
+        if cooldown <= 0:
+            return
+        self.store.block_mint(
+            mint, at + cooldown, f"cooldown after {reason.value}", at=at
+        )
+
+    # --- Entries ----------------------------------------------------------
+
+    def _seek_entries(self, at: float, report: CycleReport) -> None:
+        """Scan, screen, score, and open at most the allowed positions."""
+
+        allowed, why_not = self.risk.can_open(len(self.positions), at)
+        if not allowed:
+            report.skipped_reason = why_not
+            log.debug("not entering: %s", why_not)
+            return
+
+        candidates = self.market.discover()
+        report.scanned = len(candidates)
+        held = {position.mint for position in self.positions}
+        blocked = self.store.blocked_mints(at)
+
+        ranked = []
+        for snapshot in candidates:
+            if snapshot.mint in held or snapshot.mint == self.settings.quote_mint:
+                continue
+            if snapshot.mint in blocked:
+                report.rejected += 1
+                log.debug(
+                    "skipping %s: %s", snapshot.symbol, blocked[snapshot.mint]
+                )
+                continue
+
+            verdict = screen(
+                snapshot,
+                self.settings,
+                self.authority.fetch(snapshot.mint),
+                require_contract_checks=self.enforce_contract_checks,
+            )
+            if not verdict.passed:
+                report.rejected += 1
+                log.debug("%s", verdict.describe())
+                continue
+
+            entry = decide_entry(snapshot, self.settings)
+            if entry is None:
+                report.rejected += 1
+                continue
+            ranked.append(entry)
+
+        ranked.sort(key=lambda entry: entry.score, reverse=True)
+
+        for entry in ranked:
+            allowed, why_not = self.risk.can_open(len(self.positions), at)
+            if not allowed:
+                report.skipped_reason = why_not
+                break
+            self._execute_entry(entry, at, report)
+
+    def _execute_entry(self, entry, at: float, report: CycleReport) -> None:
+        """Open a position in the scored candidate."""
+
+        snapshot: TokenSnapshot = entry.snapshot
+        size_usd = self.risk.position_size_usd()
+
+        fill = self.broker.buy(
+            snapshot, size_usd, reason=f"score={entry.score:.2f}"
+        )
+        if fill.quantity <= 0:
+            log.warning("buy for %s returned no quantity", snapshot.symbol)
+            return
+
+        self.risk.record_buy(fill.net_usd)
+
+        position = Position(
+            mint=snapshot.mint,
+            symbol=snapshot.symbol,
+            entry_price_usd=fill.price_usd,
+            quantity=fill.quantity,
+            cost_usd=fill.net_usd,
+            opened_at=at,
+            entry_liquidity_usd=snapshot.liquidity_usd,
+            peak_price_usd=fill.price_usd,
+        )
+        position = self.store.open_position(position)
+        self.store.record_fill(fill, position.position_id)
+        self.positions.append(position)
+        report.entered.append(snapshot.symbol)
+
+        log.info(
+            "OPENED %s $%.2f @ %.10f (score %.2f: %s)",
+            snapshot.symbol, fill.net_usd, fill.price_usd, entry.score,
+            ", ".join(entry.notes),
+        )
+
+    # --- Manual controls --------------------------------------------------
+
+    def close_all(self, reason: ExitReason = ExitReason.MANUAL) -> int:
+        """Flatten every open position. Returns how many were closed."""
+
+        closed = 0
+        at = time.time()
+        for position in list(self.positions):
+            snapshot = self.market.snapshot(position.mint)
+            if snapshot is None:
+                log.warning("cannot price %s; leaving open", position.symbol)
+                continue
+            fill = self.broker.sell(snapshot, position.quantity, reason=reason.value)
+            self.store.record_fill(fill, position.position_id)
+            self.risk.record_sell(
+                fill.net_usd, position.entry_price_usd * position.quantity, at
+            )
+            position.realized_usd += (
+                fill.net_usd - position.entry_price_usd * position.quantity
+            )
+            position.quantity = 0.0
+            self._block_reentry(position.mint, reason, at)
+            self.store.close_position(position, reason, at)
+            self.positions.remove(position)
+            closed += 1
+        return closed
+
+    def equity_usd(self) -> float:
+        """Cash plus the marked value of open positions."""
+
+        total = self.risk.cash_usd
+        for position in self.positions:
+            snapshot = self.market.snapshot(position.mint)
+            price = snapshot.price_usd if snapshot else position.entry_price_usd
+            total += position.value_usd(price)
+        return total

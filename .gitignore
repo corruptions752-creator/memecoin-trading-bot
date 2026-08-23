@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Trading state. Holds the position ledger and trade history; committing it
+# would overwrite live records on the next pull.
+memecoin_bot/data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
