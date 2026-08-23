@@ -32,12 +32,33 @@ python -m memecoin_bot simulate   # one offline run on synthetic prices
 python -m memecoin_bot sweep      # many runs; read the spread, not one run
 python -m memecoin_bot scan       # screen the live market once, trade nothing
 python -m memecoin_bot run        # start the paper trading loop
+python -m memecoin_bot doctor     # hit the live APIs, show raw vs parsed
 python -m memecoin_bot verify <mint>  # every safety check on one token
 python -m memecoin_bot report     # performance and open positions
 python -m memecoin_bot close      # flatten every open position
 ```
 
 No dependencies to install. The bot uses only the standard library.
+
+## Seeing the live data yourself
+
+Do not take any number here on trust. `doctor` hits all three data sources for
+real and prints the **raw API response next to the value the bot derived from
+it**, so the parsing can be checked rather than believed:
+
+```
+  FIELD                         RAW FROM API          BOT READS AS
+  priceUsd                        0.00002841         $0.0000284100
+  liquidity.usd                   4812004.55            $4,812,005
+  priceChange.m5                         1.8                +1.80%
+  txns.m5.buys                           312                   312
+```
+
+It also decodes the mint account byte ranges in front of you, shows the actual
+Jupiter sell quote, and ends with the bot's verdict and every reason behind it.
+
+Run `python -m memecoin_bot doctor` any time a number looks wrong, or
+`doctor <mint>` to point it at a specific token.
 
 ## Execution realism
 

@@ -9,6 +9,7 @@ Usage::
     python -m memecoin_bot simulate # one offline run on synthetic prices
     python -m memecoin_bot sweep    # many runs; read the spread, not one run
     python -m memecoin_bot verify <mint>   # run every safety check on one token
+    python -m memecoin_bot doctor   # hit the live APIs and show raw vs parsed
 """
 
 import argparse
@@ -45,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         "command",
         choices=(
             "run", "scan", "report", "close", "simulate", "sweep", "verify",
+            "doctor",
         ),
         help="what to do",
     )
@@ -88,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
         from .simulate import run_sweep
         print(run_sweep(settings))
         return 0
+
+    if args.command == "doctor":
+        from .doctor import run_doctor
+        return run_doctor(settings, args.mint)
 
     if args.command == "verify":
         if not args.mint:
