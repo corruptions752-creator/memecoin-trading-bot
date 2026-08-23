@@ -10,6 +10,7 @@ Usage::
     python -m memecoin_bot sweep    # many runs; read the spread, not one run
     python -m memecoin_bot verify <mint>   # run every safety check on one token
     python -m memecoin_bot doctor   # hit the live APIs and show raw vs parsed
+    python -m memecoin_bot dashboard  # web dashboard only, no trading
 """
 
 import argparse
@@ -46,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         "command",
         choices=(
             "run", "scan", "report", "close", "simulate", "sweep", "verify",
-            "doctor",
+            "doctor", "dashboard",
         ),
         help="what to do",
     )
@@ -54,6 +55,14 @@ def main(argv: list[str] | None = None) -> int:
         "mint", nargs="?", help="token mint address (for the verify command)"
     )
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--port", type=int, default=8080,
+        help="port for the dashboard (default 8080)",
+    )
+    parser.add_argument(
+        "--no-dashboard", action="store_true",
+        help="run the trading loop without serving the dashboard",
+    )
     args = parser.parse_args(argv)
 
     # The offline commands print a report; per-trade logs would bury it.
@@ -91,6 +100,12 @@ def main(argv: list[str] | None = None) -> int:
         print(run_sweep(settings))
         return 0
 
+    if args.command == "dashboard":
+        from .dashboard import serve
+        log.info("open http://localhost:%d in a browser", args.port)
+        serve(settings, port=args.port)
+        return 0
+
     if args.command == "doctor":
         from .doctor import run_doctor
         return run_doctor(settings, args.mint)
@@ -118,6 +133,21 @@ def main(argv: list[str] | None = None) -> int:
         closed = engine.close_all()
         log.info("closed %d position(s)", closed)
         return 0
+
+    if not args.no_dashboard:
+        from .dashboard import serve
+        try:
+            serve(settings, port=args.port, background=True)
+            log.info(
+                "dashboard live at http://localhost:%d — open it in a browser",
+                args.port,
+            )
+        except OSError as error:
+            # A busy port must not stop the bot from trading.
+            log.warning(
+                "dashboard could not start on port %d (%s); trading anyway",
+                args.port, error,
+            )
 
     engine.run_forever()
     return 0

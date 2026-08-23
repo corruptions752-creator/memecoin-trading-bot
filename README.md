@@ -31,7 +31,8 @@ Run `python -m memecoin_bot sweep` before believing anything.
 python -m memecoin_bot simulate   # one offline run on synthetic prices
 python -m memecoin_bot sweep      # many runs; read the spread, not one run
 python -m memecoin_bot scan       # screen the live market once, trade nothing
-python -m memecoin_bot run        # start the paper trading loop
+python -m memecoin_bot run        # trade + serve the dashboard on :8080
+python -m memecoin_bot dashboard  # dashboard only, no trading
 python -m memecoin_bot doctor     # hit the live APIs, show raw vs parsed
 python -m memecoin_bot verify <mint>  # every safety check on one token
 python -m memecoin_bot report     # performance and open positions
@@ -39,6 +40,29 @@ python -m memecoin_bot close      # flatten every open position
 ```
 
 No dependencies to install. The bot uses only the standard library.
+
+## Watching it trade
+
+`run` serves a dashboard alongside the trading loop:
+
+```bash
+python -m memecoin_bot run
+# open http://localhost:8080
+```
+
+It shows equity, today's P&L against the loss limit, open positions with each
+one's progress between its stop and its target, closed trades with the reason
+for every exit, and the recent fill log. It polls every five seconds and reads
+straight from the bot's own database, so it cannot show anything the bot did
+not actually do.
+
+The page is one self-contained file with no dependencies, works in light and
+dark, and lays out for a phone. Gains and losses carry a ▲/▼ glyph and a sign
+as well as color, because the status green and red sit close together under
+deuteranopia.
+
+`--port` moves it; `--no-dashboard` runs the loop without it. On Replit the
+web view gives the page a public URL, so it can be opened from a phone.
 
 ## Seeing the live data yourself
 
