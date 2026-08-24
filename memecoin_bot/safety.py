@@ -78,10 +78,10 @@ _CATEGORIES = (
     ("wash trading", "wash traded"),
     ("sell pressure", "sell pressure"),
     ("no valid price", "no price"),
-    ("mint authority", "contract"),
-    ("freeze authority", "contract"),
+    ("mint authority", "mint-authority"),
+    ("freeze authority", "freeze-authority"),
     ("LP not confirmed", "LP unproven"),
-    ("holder distribution", "contract"),
+    ("holder distribution", "holders-unknown"),
     ("top holder", "whale"),
     ("honeypot", "unsellable"),
 )

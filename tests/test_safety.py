@@ -291,3 +291,22 @@ def test_the_overhang_check_can_be_disabled():
         off, safe_authority(),
     )
     assert report.passed, report.failures
+
+
+def test_contract_failures_are_told_apart(settings):
+    """One 'contract' label hid three different checks, so a scan could not
+    say which was firing."""
+
+    from memecoin_bot.safety import TokenAuthority, categorize
+
+    cases = {
+        "mint authority not confirmed revoked (supply can be inflated)":
+            "mint-authority",
+        "freeze authority not confirmed revoked (holdings can be frozen)":
+            "freeze-authority",
+        "holder distribution unknown": "holders-unknown",
+        "top holder controls 45% of supply": "whale",
+        "sell simulation did not succeed (possible honeypot)": "unsellable",
+    }
+    for failure, expected in cases.items():
+        assert categorize(failure) == expected, failure

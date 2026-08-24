@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS activity (
     shortlisted    INTEGER NOT NULL DEFAULT 0,
     rpc_failures   INTEGER NOT NULL DEFAULT 0,
     rpc_lookups    INTEGER NOT NULL DEFAULT 0,
+    near_misses    TEXT    NOT NULL DEFAULT '[]',
     entered        INTEGER NOT NULL,
     rejections     TEXT    NOT NULL DEFAULT '{}',
     skipped_reason TEXT    NOT NULL DEFAULT ''
@@ -92,6 +93,19 @@ CREATE TABLE IF NOT EXISTS mint_blocks (
     created_at    REAL    NOT NULL
 );
 """
+
+
+def _json_column(row: sqlite3.Row, name: str, default):
+    """Read a JSON column that an older database may not have."""
+
+    try:
+        raw = row[name]
+    except (IndexError, KeyError):
+        return default
+    try:
+        return json.loads(raw) if raw else default
+    except (TypeError, ValueError):
+        return default
 
 
 def _column(row: sqlite3.Row, name: str, default: int = 0) -> int:
@@ -129,6 +143,7 @@ class Store:
         ("activity", "shortlisted", "INTEGER NOT NULL DEFAULT 0"),
         ("activity", "rpc_failures", "INTEGER NOT NULL DEFAULT 0"),
         ("activity", "rpc_lookups", "INTEGER NOT NULL DEFAULT 0"),
+        ("activity", "near_misses", "TEXT NOT NULL DEFAULT '[]'"),
     )
 
     def _migrate(self) -> None:
@@ -302,6 +317,7 @@ class Store:
         self, *, at: float, scanned: int, rejected: int, candidates: int,
         entered: int, rejections: dict, skipped_reason: str = "",
         shortlisted: int = 0, rpc_failures: int = 0, rpc_lookups: int = 0,
+        near_misses: list | None = None,
     ) -> None:
         """Record the most recent scan, overwriting the previous one."""
 
@@ -309,14 +325,16 @@ class Store:
             """
             INSERT INTO activity (
                 id, at, scanned, rejected, candidates, shortlisted,
-                rpc_failures, rpc_lookups, entered, rejections, skipped_reason
-            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                rpc_failures, rpc_lookups, entered, rejections,
+                skipped_reason, near_misses
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 at = excluded.at, scanned = excluded.scanned,
                 rejected = excluded.rejected, candidates = excluded.candidates,
                 shortlisted = excluded.shortlisted,
                 rpc_failures = excluded.rpc_failures,
                 rpc_lookups = excluded.rpc_lookups,
+                near_misses = excluded.near_misses,
                 entered = excluded.entered, rejections = excluded.rejections,
                 skipped_reason = excluded.skipped_reason
             """,
@@ -324,6 +342,7 @@ class Store:
                 at, scanned, rejected, candidates, shortlisted,
                 rpc_failures, rpc_lookups, entered,
                 json.dumps(rejections), skipped_reason,
+                json.dumps(near_misses or []),
             ),
         )
         self._connection.execute(
@@ -394,6 +413,7 @@ class Store:
             "shortlisted": _column(row, "shortlisted"),
             "rpc_failures": _column(row, "rpc_failures"),
             "rpc_lookups": _column(row, "rpc_lookups"),
+            "near_misses": _json_column(row, "near_misses", []),
             "entered": row["entered"], "rejections": rejections,
             "skipped_reason": row["skipped_reason"],
         }

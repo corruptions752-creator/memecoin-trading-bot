@@ -53,6 +53,9 @@ class CycleReport:
     caused by an unreachable endpoint looks identical to one caused by a
     dangerous token, and they mean opposite things."""
     rpc_lookups: int = 0
+    near_misses: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+    """Tokens that cleared the market checks and then failed verification,
+    with every reason. A bucket count says how many; this says which."""
 
 
 class TradingEngine:
@@ -242,6 +245,7 @@ class TradingEngine:
                 shortlisted=report.shortlisted,
                 rpc_failures=report.rpc_failures,
                 rpc_lookups=report.rpc_lookups,
+                near_misses=report.near_misses,
                 entered=len(report.entered),
                 rejections=report.rejections,
                 skipped_reason=report.skipped_reason,
@@ -357,7 +361,14 @@ class TradingEngine:
             if not verdict.passed:
                 report.rejected += 1
                 self._count_rejection(report, verdict.failures[0])
-                log.debug("%s", verdict.describe())
+                if len(report.near_misses) < 5:
+                    report.near_misses.append(
+                        (snapshot.symbol, verdict.failures)
+                    )
+                log.info(
+                    "near miss %s: %s", snapshot.symbol,
+                    "; ".join(verdict.failures),
+                )
                 continue
             ranked.append(entry)
 

@@ -454,3 +454,41 @@ def test_the_page_shows_the_posture():
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert 'id="profile"' in page
     assert "per trade" in page
+
+
+def test_near_misses_are_recorded_and_served(tmp_path):
+    """When nothing trades, the most useful thing is which token came
+    closest and exactly what stopped it. A bucket count says how many; this
+    says which."""
+
+    settings, store = traded(tmp_path)
+    store.save_activity(
+        at=NOW, scanned=200, rejected=199, candidates=0, entered=0,
+        rejections={"mint-authority": 1}, shortlisted=1,
+        near_misses=[["WIF", ["mint authority not confirmed revoked"]]],
+    )
+    activity = build_state(settings, store)["activity"]
+    assert activity["near_misses"][0][0] == "WIF"
+    assert "mint authority" in activity["near_misses"][0][1][0]
+
+
+def test_near_misses_default_on_an_older_database(tmp_path):
+    import sqlite3
+    from memecoin_bot.store import Store
+
+    path = str(tmp_path / "old.sqlite3")
+    legacy = sqlite3.connect(path)
+    legacy.executescript(
+        """
+        CREATE TABLE activity (
+            id INTEGER PRIMARY KEY CHECK (id = 1), at REAL NOT NULL,
+            scanned INTEGER NOT NULL, rejected INTEGER NOT NULL,
+            candidates INTEGER NOT NULL, entered INTEGER NOT NULL,
+            rejections TEXT NOT NULL DEFAULT '{}',
+            skipped_reason TEXT NOT NULL DEFAULT ''
+        );
+        INSERT INTO activity VALUES (1, 1.0, 10, 9, 1, 0, '{}', '');
+        """
+    )
+    legacy.commit(); legacy.close()
+    assert Store(path).load_activity()["near_misses"] == []
