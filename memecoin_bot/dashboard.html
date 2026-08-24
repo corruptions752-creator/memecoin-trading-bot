@@ -590,7 +590,10 @@ function renderScan(activity, positions, maxPositions) {
 
 // Cycles land roughly every 15 minutes, so an estimate of the next one is
 // more use than a stopwatch on the last.
-const CYCLE_SECONDS = 15 * 60;
+// The scheduler aims for every five minutes but drops runs, so "due" is an
+// estimate and lateness is normal. Only a long gap means something is wrong.
+const CYCLE_SECONDS = 5 * 60;
+const STALE_SECONDS = 45 * 60;
 
 function renderStrip(state) {
   const strip = $("strip");
@@ -601,10 +604,13 @@ function renderStrip(state) {
   $("strip-scanned").textContent = a.scanned.toLocaleString();
 
   const since = Date.now() / 1000 - (state.generated_at || 0);
-  const remaining = CYCLE_SECONDS - (since % CYCLE_SECONDS);
-  $("strip-next").textContent = since > CYCLE_SECONDS * 2
-    ? "overdue"
-    : "~" + Math.max(1, Math.round(remaining / 60)) + "m";
+  if (since > STALE_SECONDS) {
+    $("strip-next").textContent = "overdue by " + ago(since - STALE_SECONDS);
+  } else {
+    const remaining = CYCLE_SECONDS - (since % CYCLE_SECONDS);
+    $("strip-next").textContent =
+      "~" + Math.max(1, Math.round(remaining / 60)) + "m";
+  }
 }
 
 // The paper run is a three-week experiment. Most cycles do nothing, so

@@ -18,10 +18,16 @@ name: Paper trade
 
 on:
   schedule:
-    # Every 15 minutes. GitHub's floor is 5 minutes and runs are frequently
-    # delayed at busy times, especially on the hour -- so the offset avoids
-    # :00 rather than fighting for it.
-    - cron: "7,22,37,52 * * * *"
+    # Every five minutes -- GitHub's floor -- offset away from the top of the
+    # hour, where the scheduler is busiest.
+    #
+    # This is not because the bot needs a five-minute cadence. GitHub's
+    # scheduler is best-effort and drops runs silently under load: of the
+    # first four scheduled firings here, one arrived. Asking more often is
+    # the only lever, since a dropped run leaves no trace and cannot be
+    # retried. A public repository has unlimited minutes and a cycle now
+    # takes well under a minute, so the extra attempts cost nothing.
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
   workflow_dispatch:        # lets you trigger a run by hand from the phone
 
 # One run at a time. Two cycles writing the same database would corrupt the
