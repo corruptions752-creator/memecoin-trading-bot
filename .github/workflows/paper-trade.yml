@@ -57,6 +57,9 @@ jobs:
         env:
           MEMEBOT_MODE: paper
           MEMEBOT_BANKROLL_USD: "1000"
+          # Aggressive: 5% per trade, 8 slots, 35% stop, 3x target, 20% daily
+          # cap. Sizing scales whatever edge exists -- in both directions.
+          MEMEBOT_PROFILE: aggressive
           MEMEBOT_DB_PATH: state/trading.sqlite3
           # A scan every 15 minutes cannot manage a 6-hour position properly,
           # so hold longer and give the trade room rather than pretending the

@@ -426,3 +426,31 @@ def test_an_unchanged_equity_says_so_plainly():
 
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert "nothing traded yet" in page
+
+
+# --- Risk posture --------------------------------------------------------
+
+def test_the_active_risk_posture_is_served(tmp_path):
+    """Sizing that aggressive is a deliberate choice, so the page must say
+    which posture is running rather than leaving it implicit."""
+
+    from memecoin_bot.config import Settings
+
+    settings = Settings(
+        profile="aggressive", risk_fraction_per_trade=0.05,
+        stop_loss_pct=0.35, take_profit_multiple=3.0,
+        database_path=str(tmp_path / "t.sqlite3"),
+    )
+    state = build_state(settings, Store(settings.database_path))
+    assert state["profile"] == "aggressive"
+    assert state["risk"]["per_trade_pct"] == 0.05
+    assert state["risk"]["stop_pct"] == 0.35
+
+
+def test_the_page_shows_the_posture():
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert 'id="profile"' in page
+    assert "per trade" in page

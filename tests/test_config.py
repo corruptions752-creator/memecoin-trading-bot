@@ -59,3 +59,49 @@ def test_environment_overrides_are_applied(monkeypatch):
     assert settings.starting_bankroll_usd == 500.0
     assert settings.max_open_positions == 5
     assert settings.risk_fraction_per_trade == 0.02
+
+
+# --- Risk profiles -------------------------------------------------------
+
+def test_profiles_scale_size_and_selectivity_together(monkeypatch):
+    """A posture is a coherent stance, not one dial."""
+
+    from memecoin_bot.config import PROFILES
+
+    sizes, scores = [], []
+    for name in ("conservative", "balanced", "aggressive"):
+        monkeypatch.setenv("MEMEBOT_PROFILE", name)
+        s = load_settings()
+        sizes.append(s.risk_fraction_per_trade)
+        scores.append(s.min_entry_score)
+
+    assert sizes == sorted(sizes), "size must rise with aggression"
+    assert scores == sorted(scores, reverse=True), "selectivity must fall"
+
+
+def test_the_default_profile_is_conservative(monkeypatch):
+    monkeypatch.delenv("MEMEBOT_PROFILE", raising=False)
+    assert load_settings().risk_fraction_per_trade == 0.01
+
+
+def test_an_unknown_profile_is_rejected(monkeypatch):
+    monkeypatch.setenv("MEMEBOT_PROFILE", "yolo")
+    with pytest.raises(RuntimeError, match="MEMEBOT_PROFILE"):
+        load_settings()
+
+
+def test_an_explicit_variable_beats_the_profile(monkeypatch):
+    """A profile is a starting point, not a cage."""
+
+    monkeypatch.setenv("MEMEBOT_PROFILE", "aggressive")
+    monkeypatch.setenv("MEMEBOT_RISK_FRACTION", "0.02")
+    assert load_settings().risk_fraction_per_trade == 0.02
+
+
+def test_the_hard_size_cap_survives_any_profile(monkeypatch):
+    """No posture may bet a quarter of the bankroll on one trade."""
+
+    monkeypatch.setenv("MEMEBOT_PROFILE", "aggressive")
+    monkeypatch.setenv("MEMEBOT_RISK_FRACTION", "0.9")
+    with pytest.raises(RuntimeError, match="at most"):
+        load_settings()

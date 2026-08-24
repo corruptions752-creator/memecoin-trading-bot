@@ -12,6 +12,47 @@ import os
 PAPER = "paper"
 LIVE = "live"
 
+# Risk postures. These change how much is committed and how selective the
+# bot is -- a coherent stance, chosen deliberately, rather than filters
+# quietly widened until something trades.
+#
+# Worth being exact about the trade: more size does not create an edge. It
+# scales whatever edge exists, in both directions. On a strategy that loses,
+# aggressive sizing loses faster; the reason to choose it is a belief that
+# the edge is real and worth pressing.
+PROFILES = {
+    "conservative": {
+        "risk_fraction_per_trade": 0.01,
+        "max_open_positions": 3,
+        "stop_loss_pct": 0.15,
+        "take_profit_multiple": 2.0,
+        "trailing_stop_pct": 0.25,
+        "daily_loss_limit_pct": 0.05,
+        "min_entry_score": 0.55,
+        "min_liquidity_usd": 25_000.0,
+    },
+    "balanced": {
+        "risk_fraction_per_trade": 0.03,
+        "max_open_positions": 5,
+        "stop_loss_pct": 0.25,
+        "take_profit_multiple": 2.5,
+        "trailing_stop_pct": 0.30,
+        "daily_loss_limit_pct": 0.10,
+        "min_entry_score": 0.45,
+        "min_liquidity_usd": 15_000.0,
+    },
+    "aggressive": {
+        "risk_fraction_per_trade": 0.05,
+        "max_open_positions": 8,
+        "stop_loss_pct": 0.35,
+        "take_profit_multiple": 3.0,
+        "trailing_stop_pct": 0.35,
+        "daily_loss_limit_pct": 0.20,
+        "min_entry_score": 0.35,
+        "min_liquidity_usd": 10_000.0,
+    },
+}
+
 LP_AUTO = "auto"
 LP_STRICT = "strict"
 LP_SUBSTITUTE = "substitute"
@@ -24,6 +65,9 @@ class Settings:
     """Runtime settings loaded from environment variables."""
 
     # --- Mode -------------------------------------------------------------
+    profile: str = "conservative"
+    """Which risk posture the settings came from, for display."""
+
     mode: str = PAPER
     """Either ``paper`` or ``live``. Live additionally requires
     ``MEMEBOT_I_UNDERSTAND_THE_RISK=yes`` and a funded wallet key."""
@@ -186,6 +230,17 @@ class Settings:
     """Wrapped SOL, the quote asset for Solana meme coin pairs."""
 
 
+def apply_profile(name: str) -> dict:
+    """Settings overrides for a named risk posture."""
+
+    key = (name or "").strip().lower()
+    if key not in PROFILES:
+        raise RuntimeError(
+            f"MEMEBOT_PROFILE must be one of {', '.join(PROFILES)}."
+        )
+    return dict(PROFILES[key])
+
+
 def resolve_lp_policy(settings: "Settings") -> str:
     """The LP policy actually in force, resolving ``auto`` by mode.
 
@@ -254,30 +309,48 @@ def load_settings() -> Settings:
                 "that, and only after reviewing paper results."
             )
 
+    # A profile sets the whole posture; individual variables still win over
+    # it, so a profile is a starting point rather than a cage.
+    profile_name = os.getenv("MEMEBOT_PROFILE", "conservative").strip().lower()
+    profile = apply_profile(profile_name or "conservative")
+
     settings = Settings(
         mode=mode,
+        profile=profile_name or "conservative",
         starting_bankroll_usd=_float(
             "MEMEBOT_BANKROLL_USD", 1_000.0, minimum=1.0
         ),
         risk_fraction_per_trade=_float(
-            "MEMEBOT_RISK_FRACTION", 0.01, minimum=0.0001, maximum=0.25
+            "MEMEBOT_RISK_FRACTION", profile["risk_fraction_per_trade"],
+            minimum=0.0001, maximum=0.25,
         ),
-        max_open_positions=_int("MEMEBOT_MAX_POSITIONS", 3, minimum=1),
+        max_open_positions=_int(
+            "MEMEBOT_MAX_POSITIONS", profile["max_open_positions"], minimum=1
+        ),
         stop_loss_pct=_float(
-            "MEMEBOT_STOP_LOSS_PCT", 0.15, minimum=0.01, maximum=0.95
+            "MEMEBOT_STOP_LOSS_PCT", profile["stop_loss_pct"],
+            minimum=0.01, maximum=0.95,
         ),
         take_profit_multiple=_float(
-            "MEMEBOT_TAKE_PROFIT_MULTIPLE", 2.0, minimum=1.05
+            "MEMEBOT_TAKE_PROFIT_MULTIPLE", profile["take_profit_multiple"],
+            minimum=1.05,
         ),
         trailing_stop_pct=_float(
-            "MEMEBOT_TRAILING_STOP_PCT", 0.25, minimum=0.01, maximum=0.95
+            "MEMEBOT_TRAILING_STOP_PCT", profile["trailing_stop_pct"],
+            minimum=0.01, maximum=0.95,
+        ),
+        min_entry_score=_float(
+            "MEMEBOT_MIN_ENTRY_SCORE", profile["min_entry_score"],
+            minimum=0.0, maximum=1.0,
         ),
         max_hold_seconds=_int("MEMEBOT_MAX_HOLD_SECONDS", 6 * 3_600, minimum=60),
         daily_loss_limit_pct=_float(
-            "MEMEBOT_DAILY_LOSS_LIMIT_PCT", 0.05, minimum=0.005, maximum=1.0
+            "MEMEBOT_DAILY_LOSS_LIMIT_PCT", profile["daily_loss_limit_pct"],
+            minimum=0.005, maximum=1.0,
         ),
         min_liquidity_usd=_float(
-            "MEMEBOT_MIN_LIQUIDITY_USD", 25_000.0, minimum=0.0
+            "MEMEBOT_MIN_LIQUIDITY_USD", profile["min_liquidity_usd"],
+            minimum=0.0,
         ),
         rpc_endpoint=os.getenv(
             "MEMEBOT_RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"

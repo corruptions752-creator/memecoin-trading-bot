@@ -105,6 +105,12 @@ def build_state(settings: Settings, store: Store) -> dict:
             "tokens_seen": tokens_seen,
         },
         "lp_policy": resolve_lp_policy(settings),
+        "profile": settings.profile,
+        "risk": {
+            "per_trade_pct": settings.risk_fraction_per_trade,
+            "stop_pct": settings.stop_loss_pct,
+            "target_multiple": settings.take_profit_multiple,
+        },
         "generated_at": now,
         "bankroll": risk["cash_usd"] + risk["open_cost_usd"],
         "cash": risk["cash_usd"],
