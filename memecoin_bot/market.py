@@ -42,17 +42,89 @@ class DexScreenerClient:
     # --- Public API -------------------------------------------------------
 
     def discover(self) -> list[TokenSnapshot]:
-        """Search for active Solana pairs quoted in SOL.
+        """Gather candidate Solana pairs from several angles.
 
-        DexScreener has no "list all new pairs" endpoint on the free tier, so
-        this searches for SOL-quoted pairs and lets the safety screen and
-        strategy do the filtering.
+        A single search for "SOL" returns only a handful of pairs, and the
+        ones it does return skew old and thin -- a live run scanned 16 and
+        rejected every one on volume or age. There is no public "trending"
+        endpoint on the free tier, so breadth has to come from combining
+        sources:
+
+        * the boosted-token feed, which is where actively promoted (and so
+          actively traded) tokens surface;
+        * searches against the common quote assets, which return the deepest
+          pairs on each;
+        * searches for the venues themselves, which surface recently created
+          pools.
+
+        Results are deduplicated by mint, keeping the deepest pool for each,
+        since that is the one a trade would route through.
         """
 
-        payload = self._get(f"/latest/dex/search?q={quote('SOL')}")
-        if payload is None:
+        collected: dict[str, TokenSnapshot] = {}
+
+        for snapshot in self._boosted_tokens():
+            self._keep_deepest(collected, snapshot)
+
+        for term in self._SEARCH_TERMS:
+            payload = self._get(f"/latest/dex/search?q={quote(term)}")
+            if payload is None:
+                continue
+            for snapshot in self._parse_pairs(payload.get("pairs") or []):
+                self._keep_deepest(collected, snapshot)
+
+        log.info("discovery found %d distinct token(s)", len(collected))
+        return list(collected.values())
+
+    _SEARCH_TERMS = (
+        "SOL", "USDC", "SOL/USDC", "WSOL",
+        "raydium", "pumpfun", "meteora", "orca",
+    )
+    """Deliberately broad. Each term returns a different slice, and the screen
+    is strict enough that a wide net costs nothing but a few requests."""
+
+    _MAX_BOOSTED = 60
+
+    def _boosted_tokens(self) -> list[TokenSnapshot]:
+        """Pairs for tokens on the boosted feed.
+
+        Boosted tokens are ones someone paid to promote, which correlates
+        with activity. That is a signal about attention, not about quality --
+        the safety screen still has to reject the rugs among them, and it
+        does.
+        """
+
+        payload = self._get_list("/token-boosts/latest/v1")
+        if not payload:
             return []
-        return self._parse_pairs(payload.get("pairs") or [])
+
+        snapshots: list[TokenSnapshot] = []
+        seen = 0
+        for entry in payload:
+            if seen >= self._MAX_BOOSTED:
+                break
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("chainId") != self._chain:
+                continue
+            mint = str(entry.get("tokenAddress") or "").strip()
+            if not mint:
+                continue
+            seen += 1
+            snapshot = self.snapshot(mint)
+            if snapshot is not None:
+                snapshots.append(snapshot)
+        return snapshots
+
+    @staticmethod
+    def _keep_deepest(
+        collected: dict[str, TokenSnapshot], snapshot: TokenSnapshot
+    ) -> None:
+        """Record a snapshot, preferring the deepest pool per mint."""
+
+        existing = collected.get(snapshot.mint)
+        if existing is None or snapshot.liquidity_usd > existing.liquidity_usd:
+            collected[snapshot.mint] = snapshot
 
     def snapshot(self, mint: str) -> TokenSnapshot | None:
         """Fetch the most liquid pair for ``mint``."""
@@ -69,11 +141,17 @@ class DexScreenerClient:
     # --- Internals --------------------------------------------------------
 
     def _get(self, path: str) -> dict[str, Any] | None:
-        """GET a JSON document, returning ``None`` on any failure.
+        """GET a JSON object, returning ``None`` on any failure.
 
         A data outage must look like "no candidates", never like an exception
         that kills the trading loop while positions are open.
         """
+
+        document = self._get_json(path)
+        return document if isinstance(document, dict) else None
+
+    def _get_json(self, path: str) -> Any:
+        """GET and decode JSON, returning ``None`` on any failure."""
 
         url = f"{BASE_URL}{path}"
         request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -90,13 +168,20 @@ class DexScreenerClient:
             return None
 
         try:
-            document = json.loads(body)
+            return json.loads(body)
         except json.JSONDecodeError:
             log.warning("market data returned invalid JSON for %s", path)
             return None
-        if not isinstance(document, dict):
-            return None
-        return document
+
+    def _get_list(self, path: str) -> list[Any]:
+        """GET a JSON array endpoint, returning [] on any failure.
+
+        Separate from :meth:`_get` because some DexScreener endpoints return
+        a bare array rather than an object.
+        """
+
+        document = self._get_json(path)
+        return document if isinstance(document, list) else []
 
     def _parse_pairs(self, raw_pairs: Iterable[Any]) -> list[TokenSnapshot]:
         """Convert raw pair records into snapshots, dropping unusable ones."""

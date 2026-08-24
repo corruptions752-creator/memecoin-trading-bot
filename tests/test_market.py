@@ -152,3 +152,99 @@ def test_invalid_json_is_swallowed():
 
     with patch("urllib.request.urlopen", return_value=FakeResponse()):
         assert client.discover() == []
+
+
+# --- Discovery breadth ---------------------------------------------------
+
+def test_discovery_queries_several_sources():
+    """A single search returned 16 pairs on a live run and every one was
+    rejected. Breadth has to come from combining sources."""
+
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+    calls = []
+
+    def record(path):
+        calls.append(path)
+        return None
+
+    with _patch.object(DexScreenerClient, "_get_json", side_effect=record):
+        client.discover()
+
+    assert any("token-boosts" in c for c in calls), "boosted feed not queried"
+    searches = [c for c in calls if "search" in c]
+    assert len(searches) >= 5, f"only {len(searches)} searches"
+
+
+def test_discovery_deduplicates_by_mint():
+    """The same token surfaces from several searches; it must appear once."""
+
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+
+    with _patch.object(
+        DexScreenerClient, "_get_json",
+        side_effect=lambda path: [] if "boosts" in path else {"pairs": [SAMPLE_PAIR]},
+    ):
+        found = client.discover()
+
+    assert len(found) == 1
+    assert found[0].mint == "MintAddr111"
+
+
+def test_discovery_keeps_the_deepest_pool_per_mint():
+    """A trade routes through the deepest pool, so that is the one to keep."""
+
+    from unittest.mock import patch as _patch
+    shallow = dict(SAMPLE_PAIR, liquidity={"usd": 5_000.0}, pairAddress="Shallow")
+    deep = dict(SAMPLE_PAIR, liquidity={"usd": 800_000.0}, pairAddress="Deep")
+    client = DexScreenerClient(Settings())
+
+    with _patch.object(
+        DexScreenerClient, "_get_json",
+        side_effect=lambda p: [] if "boosts" in p else {"pairs": [shallow, deep]},
+    ):
+        found = client.discover()
+
+    assert len(found) == 1
+    assert found[0].pair_address == "Deep"
+
+
+def test_the_boosted_feed_is_parsed_as_an_array():
+    """That endpoint returns a bare JSON array, not an object."""
+
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+    boosts = [
+        {"chainId": "solana", "tokenAddress": "MintAddr111"},
+        {"chainId": "ethereum", "tokenAddress": "0xdeadbeef"},
+    ]
+
+    def route(path):
+        if "boosts" in path:
+            return boosts
+        return {"pairs": [SAMPLE_PAIR]}
+
+    with _patch.object(DexScreenerClient, "_get_json", side_effect=route):
+        found = client.discover()
+    assert found
+
+
+def test_other_chains_are_skipped_in_the_boosted_feed():
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+
+    def route(path):
+        if "boosts" in path:
+            return [{"chainId": "ethereum", "tokenAddress": "0xabc"}]
+        return {"pairs": []}
+
+    with _patch.object(DexScreenerClient, "_get_json", side_effect=route):
+        assert client.discover() == []
+
+
+def test_a_total_outage_yields_no_candidates_not_an_exception():
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+    with _patch.object(DexScreenerClient, "_get_json", return_value=None):
+        assert client.discover() == []
