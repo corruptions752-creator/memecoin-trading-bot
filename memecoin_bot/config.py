@@ -198,7 +198,11 @@ class Settings:
     """Solana JSON-RPC endpoint. The public one rate limits hard; a paid
     endpoint is required before live trading, because a throttled safety
     check fails closed and the bot simply stops finding candidates."""
-    jupiter_endpoint: str = "https://quote-api.jup.ag/v6"
+    jupiter_endpoint: str = "https://lite-api.jup.ag/swap/v1"
+    """Keyless Jupiter tier. The previous host was retired and stopped
+    resolving, which silently disabled the honeypot check."""
+    jupiter_api_key: str = ""
+    """Set with MEMEBOT_JUPITER_API_KEY to use api.jup.ag instead."""
     max_sell_price_impact_pct: float = 0.15
     """A sell quote worse than this counts as unsellable."""
     sell_probe_tokens: float = 1_000.0
@@ -366,6 +370,10 @@ def load_settings() -> Settings:
             "MEMEBOT_LP_SUBSTITUTE_MIN_LIQUIDITY_USD",
             profile["lp_substitute_min_liquidity_usd"], minimum=0.0,
         ),
+        jupiter_endpoint=os.getenv(
+            "MEMEBOT_JUPITER_ENDPOINT", "https://lite-api.jup.ag/swap/v1"
+        ).strip() or "https://lite-api.jup.ag/swap/v1",
+        jupiter_api_key=os.getenv("MEMEBOT_JUPITER_API_KEY", "").strip(),
         rpc_endpoint=os.getenv(
             "MEMEBOT_RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"
         ).strip() or "https://api.mainnet-beta.solana.com",

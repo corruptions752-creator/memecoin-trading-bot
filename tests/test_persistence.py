@@ -192,3 +192,65 @@ def test_local_databases_are_still_ignored():
         cwd=repo, capture_output=True, text=True,
     )
     assert result.returncode == 0, "local databases should stay ignored"
+
+
+def test_a_database_from_an_older_version_is_migrated(tmp_path):
+    """CREATE TABLE IF NOT EXISTS does nothing to an existing table, so a
+    file written before a column was added keeps its old shape and every
+    read of that column raises. It crashed five consecutive scheduled runs.
+    """
+
+    import sqlite3
+    from memecoin_bot.store import Store
+
+    path = str(tmp_path / "old.sqlite3")
+    legacy = sqlite3.connect(path)
+    legacy.executescript(
+        """
+        CREATE TABLE activity (
+            id INTEGER PRIMARY KEY CHECK (id = 1), at REAL NOT NULL,
+            scanned INTEGER NOT NULL, rejected INTEGER NOT NULL,
+            candidates INTEGER NOT NULL, entered INTEGER NOT NULL,
+            rejections TEXT NOT NULL DEFAULT '{}',
+            skipped_reason TEXT NOT NULL DEFAULT ''
+        );
+        INSERT INTO activity VALUES (1, 1.0, 100, 99, 1, 0, '{}', '');
+        """
+    )
+    legacy.commit()
+    legacy.close()
+
+    activity = Store(path).load_activity()
+    assert activity is not None
+    assert activity["scanned"] == 100, "existing data must survive"
+    assert activity["rpc_failures"] == 0, "new column must default"
+
+
+def test_migrated_columns_accept_writes(tmp_path):
+    import sqlite3
+    from memecoin_bot.store import Store
+
+    path = str(tmp_path / "old.sqlite3")
+    legacy = sqlite3.connect(path)
+    legacy.executescript(
+        """
+        CREATE TABLE activity (
+            id INTEGER PRIMARY KEY CHECK (id = 1), at REAL NOT NULL,
+            scanned INTEGER NOT NULL, rejected INTEGER NOT NULL,
+            candidates INTEGER NOT NULL, entered INTEGER NOT NULL,
+            rejections TEXT NOT NULL DEFAULT '{}',
+            skipped_reason TEXT NOT NULL DEFAULT ''
+        );
+        """
+    )
+    legacy.commit()
+    legacy.close()
+
+    store = Store(path)
+    store.save_activity(
+        at=1.0, scanned=5, rejected=4, candidates=1, entered=0,
+        rejections={}, shortlisted=2, rpc_failures=1, rpc_lookups=3,
+    )
+    activity = store.load_activity()
+    assert activity["rpc_lookups"] == 3
+    assert activity["shortlisted"] == 2

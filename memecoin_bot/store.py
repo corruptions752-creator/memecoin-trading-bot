@@ -94,6 +94,20 @@ CREATE TABLE IF NOT EXISTS mint_blocks (
 """
 
 
+def _column(row: sqlite3.Row, name: str, default: int = 0) -> int:
+    """Read a column that an older database may not have.
+
+    Belt and braces alongside the migration: a dashboard read should degrade
+    to a zero rather than crash the trading run that was about to publish it.
+    """
+
+    try:
+        value = row[name]
+    except (IndexError, KeyError):
+        return default
+    return default if value is None else value
+
+
 class Store:
     """Durable record of what the bot holds and what it has traded."""
 
@@ -104,7 +118,33 @@ class Store:
         self._connection = sqlite3.connect(path)
         self._connection.row_factory = sqlite3.Row
         self._connection.executescript(_SCHEMA)
+        self._migrate()
         self._connection.commit()
+
+    # Columns added after the first release. CREATE TABLE IF NOT EXISTS does
+    # nothing to a table that already exists, so a database written by an
+    # older version keeps its old shape and every read of a new column raises.
+    # That is not hypothetical: it crashed five consecutive scheduled runs.
+    _MIGRATIONS = (
+        ("activity", "shortlisted", "INTEGER NOT NULL DEFAULT 0"),
+        ("activity", "rpc_failures", "INTEGER NOT NULL DEFAULT 0"),
+        ("activity", "rpc_lookups", "INTEGER NOT NULL DEFAULT 0"),
+    )
+
+    def _migrate(self) -> None:
+        """Add any columns this version expects but an older file lacks."""
+
+        for table, column, definition in self._MIGRATIONS:
+            existing = {
+                row["name"] for row in
+                self._connection.execute(f"PRAGMA table_info({table})")
+            }
+            if not existing:
+                continue  # table not created yet; the schema will handle it
+            if column not in existing:
+                self._connection.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+                )
 
     def close(self) -> None:
         """Close the underlying connection."""
@@ -351,9 +391,9 @@ class Store:
         return {
             "at": row["at"], "scanned": row["scanned"],
             "rejected": row["rejected"], "candidates": row["candidates"],
-            "shortlisted": row["shortlisted"],
-            "rpc_failures": row["rpc_failures"],
-            "rpc_lookups": row["rpc_lookups"],
+            "shortlisted": _column(row, "shortlisted"),
+            "rpc_failures": _column(row, "rpc_failures"),
+            "rpc_lookups": _column(row, "rpc_lookups"),
             "entered": row["entered"], "rejections": rejections,
             "skipped_reason": row["skipped_reason"],
         }

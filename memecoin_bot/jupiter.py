@@ -19,7 +19,18 @@ import urllib.request
 
 log = logging.getLogger(__name__)
 
-DEFAULT_ENDPOINT = "https://quote-api.jup.ag/v6"
+DEFAULT_ENDPOINT = "https://lite-api.jup.ag/swap/v1"
+"""Jupiter's keyless tier.
+
+``quote-api.jup.ag/v6`` was retired and its hostname no longer resolves, so
+every sell simulation failed DNS and returned "unknown" -- which the screen
+correctly treats as a rejection. The result was a bot that could never verify
+any token, for a reason that looked exactly like every token being unsafe.
+
+``api.jup.ag`` is the successor and wants a free key from portal.jup.ag; set
+MEMEBOT_JUPITER_ENDPOINT and MEMEBOT_JUPITER_API_KEY to use it. Jupiter has
+announced this keyless host will eventually retire too, so a failing sell
+check is worth checking against the endpoint before blaming the market."""
 WRAPPED_SOL = "So11111111111111111111111111111111111111112"
 
 
@@ -45,10 +56,12 @@ class JupiterClient:
     """Read-only Jupiter aggregator client."""
 
     def __init__(
-        self, endpoint: str = DEFAULT_ENDPOINT, timeout: float = 10.0
+        self, endpoint: str = DEFAULT_ENDPOINT, timeout: float = 10.0,
+        api_key: str = "",
     ) -> None:
         self.endpoint = endpoint.rstrip("/")
         self.timeout = timeout
+        self.api_key = api_key
 
     def quote(
         self, input_mint: str, output_mint: str, amount: int,
@@ -129,9 +142,10 @@ class JupiterClient:
     def _get(self, url: str) -> dict[str, Any] | None:
         """GET a JSON document, returning ``None`` on any failure."""
 
-        request = urllib.request.Request(
-            url, headers={"User-Agent": "memecoin-bot/0.1"}
-        )
+        headers = {"User-Agent": "memecoin-bot/0.1"}
+        if self.api_key:
+            headers["x-api-key"] = self.api_key
+        request = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 if response.status != 200:

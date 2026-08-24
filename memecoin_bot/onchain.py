@@ -64,7 +64,8 @@ class OnChainAuthorityProvider:
             settings.rpc_endpoint, settings.request_timeout_seconds
         )
         self.jupiter = jupiter or JupiterClient(
-            settings.jupiter_endpoint, settings.request_timeout_seconds
+            settings.jupiter_endpoint, settings.request_timeout_seconds,
+            api_key=settings.jupiter_api_key,
         )
         self._cache: dict[str, _CacheEntry] = {}
         self.lookups = 0

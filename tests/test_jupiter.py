@@ -133,10 +133,23 @@ def test_the_client_never_builds_a_transaction():
         and node.value not in docstrings
     ]
 
+    # Jupiter's current base path is /swap/v1, so the word "swap" appearing
+    # in a literal proves nothing. What must not appear is the action that
+    # builds a transaction: /swap/v1/swap, as opposed to /swap/v1/quote.
     for text in literals:
         lowered = text.lower()
-        assert "/swap" not in lowered, f"swap endpoint referenced: {text!r}"
+        assert not lowered.endswith("/swap"), f"swap action referenced: {text!r}"
+        assert "swap-instructions" not in lowered, text
         assert "sendtransaction" not in lowered, text
+
+    # And the only endpoint path this client ever builds is a quote. Bare
+    # separators like "/" (from rstrip) are not paths.
+    paths = [
+        x for x in literals
+        if x.startswith("/") and len(x) > 1 and not x.startswith("//")
+    ]
+    for path in paths:
+        assert "quote" in path, f"unexpected endpoint path: {path!r}"
 
     # A quote is a GET. Any request carrying a body would be a state change.
     for node in ast.walk(tree):
