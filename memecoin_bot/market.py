@@ -50,8 +50,8 @@ class DexScreenerClient:
         endpoint on the free tier, so breadth has to come from combining
         sources:
 
-        * the boosted-token feed, which is where actively promoted (and so
-          actively traded) tokens surface;
+        * feeds of tokens being promoted or newly listed right now, which is
+          what changes between cycles;
         * searches against the common quote assets, which return the deepest
           pairs on each;
         * searches for the venues themselves, which surface recently created
@@ -63,7 +63,7 @@ class DexScreenerClient:
 
         collected: dict[str, TokenSnapshot] = {}
 
-        for snapshot in self._boosted_tokens():
+        for snapshot in self._feed_tokens():
             self._keep_deepest(collected, snapshot)
 
         for term in self._SEARCH_TERMS:
@@ -80,40 +80,59 @@ class DexScreenerClient:
         "SOL", "USDC", "SOL/USDC", "WSOL",
         "raydium", "pumpfun", "meteora", "orca",
     )
-    """Deliberately broad. Each term returns a different slice, and the screen
-    is strict enough that a wide net costs nothing but a few requests."""
+    """Searches return a stable slice, so on their own they surface the same
+    tokens every cycle. They are the floor of discovery, not the whole of it."""
 
-    _MAX_BOOSTED = 60
+    _DISCOVERY_FEEDS = (
+        "/token-boosts/latest/v1",
+        "/token-boosts/top/v1",
+        "/token-profiles/latest/v1",
+    )
+    """Tokens being promoted or newly listed right now. Unlike a search, what
+    these return changes between cycles, which is what stops the bot staring
+    at the same static universe -- three successive live scans found 151, 150
+    and 150 tokens because searches alone barely move."""
 
-    def _boosted_tokens(self) -> list[TokenSnapshot]:
-        """Pairs for tokens on the boosted feed.
+    _MAX_FEED_TOKENS = 120
+    _BATCH_SIZE = 30
+    """DexScreener takes up to 30 comma-separated addresses per request, so
+    batching turns a hundred lookups into four."""
 
-        Boosted tokens are ones someone paid to promote, which correlates
-        with activity. That is a signal about attention, not about quality --
-        the safety screen still has to reject the rugs among them, and it
-        does.
+    def _feed_tokens(self) -> list[TokenSnapshot]:
+        """Pairs for tokens surfaced by the discovery feeds.
+
+        Promotion is a signal about attention, not about quality. The safety
+        screen still has to reject the rugs among them, which is its job.
         """
 
-        payload = self._get_list("/token-boosts/latest/v1")
-        if not payload:
-            return []
+        mints: list[str] = []
+        seen: set[str] = set()
+
+        for path in self._DISCOVERY_FEEDS:
+            for entry in self._get_list(path):
+                if len(mints) >= self._MAX_FEED_TOKENS:
+                    break
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("chainId") != self._chain:
+                    continue
+                mint = str(entry.get("tokenAddress") or "").strip()
+                if mint and mint not in seen:
+                    seen.add(mint)
+                    mints.append(mint)
+
+        return self._snapshots_for(mints)
+
+    def _snapshots_for(self, mints: list[str]) -> list[TokenSnapshot]:
+        """Look mints up in batches rather than one request each."""
 
         snapshots: list[TokenSnapshot] = []
-        seen = 0
-        for entry in payload:
-            if seen >= self._MAX_BOOSTED:
-                break
-            if not isinstance(entry, dict):
+        for start in range(0, len(mints), self._BATCH_SIZE):
+            batch = mints[start:start + self._BATCH_SIZE]
+            payload = self._get(f"/latest/dex/tokens/{quote(','.join(batch))}")
+            if payload is None:
                 continue
-            if entry.get("chainId") != self._chain:
-                continue
-            mint = str(entry.get("tokenAddress") or "").strip()
-            if not mint:
-                continue
-            seen += 1
-            snapshot = self.snapshot(mint)
-            if snapshot is not None:
-                snapshots.append(snapshot)
+            snapshots.extend(self._parse_pairs(payload.get("pairs") or []))
         return snapshots
 
     @staticmethod

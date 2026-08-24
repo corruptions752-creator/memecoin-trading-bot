@@ -171,7 +171,8 @@ def test_discovery_queries_several_sources():
     with _patch.object(DexScreenerClient, "_get_json", side_effect=record):
         client.discover()
 
-    assert any("token-boosts" in c for c in calls), "boosted feed not queried"
+    assert any("token-boosts" in c for c in calls), "boost feeds not queried"
+    assert any("token-profiles" in c for c in calls), "profiles feed not queried"
     searches = [c for c in calls if "search" in c]
     assert len(searches) >= 5, f"only {len(searches)} searches"
 
@@ -184,7 +185,8 @@ def test_discovery_deduplicates_by_mint():
 
     with _patch.object(
         DexScreenerClient, "_get_json",
-        side_effect=lambda path: [] if "boosts" in path else {"pairs": [SAMPLE_PAIR]},
+        side_effect=lambda p: [] if ("boosts" in p or "profiles" in p)
+        else {"pairs": [SAMPLE_PAIR]},
     ):
         found = client.discover()
 
@@ -202,7 +204,8 @@ def test_discovery_keeps_the_deepest_pool_per_mint():
 
     with _patch.object(
         DexScreenerClient, "_get_json",
-        side_effect=lambda p: [] if "boosts" in p else {"pairs": [shallow, deep]},
+        side_effect=lambda p: [] if ("boosts" in p or "profiles" in p)
+        else {"pairs": [shallow, deep]},
     ):
         found = client.discover()
 
@@ -221,7 +224,7 @@ def test_the_boosted_feed_is_parsed_as_an_array():
     ]
 
     def route(path):
-        if "boosts" in path:
+        if "boosts" in path or "profiles" in path:
             return boosts
         return {"pairs": [SAMPLE_PAIR]}
 
@@ -235,7 +238,7 @@ def test_other_chains_are_skipped_in_the_boosted_feed():
     client = DexScreenerClient(Settings())
 
     def route(path):
-        if "boosts" in path:
+        if "boosts" in path or "profiles" in path:
             return [{"chainId": "ethereum", "tokenAddress": "0xabc"}]
         return {"pairs": []}
 
@@ -248,3 +251,72 @@ def test_a_total_outage_yields_no_candidates_not_an_exception():
     client = DexScreenerClient(Settings())
     with _patch.object(DexScreenerClient, "_get_json", return_value=None):
         assert client.discover() == []
+
+
+def test_feed_lookups_are_batched():
+    """A hundred one-at-a-time lookups per cycle invites rate limiting and
+    makes every scan slow. DexScreener takes 30 addresses per request."""
+
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+    mints = [f"Mint{i:03d}" for i in range(90)]
+    requested = []
+
+    def route(path):
+        if "boosts" in path or "profiles" in path:
+            return [
+                {"chainId": "solana", "tokenAddress": m} for m in mints
+            ]
+        requested.append(path)
+        return {"pairs": []}
+
+    with _patch.object(DexScreenerClient, "_get_json", side_effect=route):
+        client.discover()
+
+    batched = [p for p in requested if "/latest/dex/tokens/" in p]
+    assert batched, "no batched token lookups"
+    assert len(batched) <= 4, f"{len(batched)} requests for 90 mints"
+    assert "%2C" in batched[0] or "," in batched[0], "addresses not comma-joined"
+
+
+def test_feed_tokens_are_capped():
+    """A runaway feed must not turn one cycle into hundreds of requests."""
+
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+    huge = [
+        {"chainId": "solana", "tokenAddress": f"Mint{i:04d}"}
+        for i in range(5_000)
+    ]
+    lookups = []
+
+    def route(path):
+        if "boosts" in path or "profiles" in path:
+            return huge
+        lookups.append(path)
+        return {"pairs": []}
+
+    with _patch.object(DexScreenerClient, "_get_json", side_effect=route):
+        client.discover()
+
+    token_calls = [p for p in lookups if "/latest/dex/tokens/" in p]
+    assert len(token_calls) <= DexScreenerClient._MAX_FEED_TOKENS // 30 + 1
+
+
+def test_duplicate_mints_across_feeds_are_looked_up_once():
+    from unittest.mock import patch as _patch
+    client = DexScreenerClient(Settings())
+    same = [{"chainId": "solana", "tokenAddress": "MintAddr111"}]
+    lookups = []
+
+    def route(path):
+        if "boosts" in path or "profiles" in path:
+            return same
+        lookups.append(path)
+        return {"pairs": []}
+
+    with _patch.object(DexScreenerClient, "_get_json", side_effect=route):
+        client.discover()
+
+    token_calls = [p for p in lookups if "/latest/dex/tokens/" in p]
+    assert len(token_calls) == 1
