@@ -5,10 +5,17 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-# Trading state. Holds the position ledger and trade history; committing it
-# would overwrite live records on the next pull.
+# Local trading state. Holds the position ledger and trade history; a local
+# run's database must not be committed, or a pull would overwrite it.
 memecoin_bot/data/
 *.sqlite3
+
+# ...but the scheduled runner's database is the exception, and must be.
+# A GitHub Actions run starts from a fresh checkout, so the committed file is
+# the bot's only memory between cycles. Without this it would forget every
+# open position, reset the bankroll, and clear the re-entry blocklist on
+# every run -- buying repeatedly and never selling.
+!state/*.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
 *.sqlite3-journal

@@ -69,7 +69,23 @@ jobs:
         run: |
           git config user.name "paper-trade-bot"
           git config user.email "actions@github.com"
+
+          # The database is this bot's only memory between cycles: a run
+          # starts from a fresh checkout, so anything not committed is
+          # forgotten. It was silently excluded by a .gitignore rule for
+          # several runs, which reset the bankroll and would have orphaned
+          # any open position. Fail loudly rather than repeat that.
+          if git check-ignore -q state/trading.sqlite3; then
+            echo "::error::state/trading.sqlite3 is gitignored; the bot" \
+                 "would lose every position and reset its bankroll."
+            exit 1
+          fi
+
           git add -A state docs
+          if ! git diff --staged --name-only | grep -q "state/trading.sqlite3"; then
+            echo "::warning::database unchanged this cycle"
+          fi
+
           if git diff --staged --quiet; then
             echo "nothing changed this cycle"
           else

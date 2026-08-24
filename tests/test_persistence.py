@@ -149,3 +149,46 @@ def test_capital_is_conserved_across_many_restarts(tmp_path):
         store.close()
 
     assert abs(risk.bankroll_usd - 1_000.0) < 1.0
+
+
+def test_the_runner_database_is_not_gitignored():
+    """A scheduled run starts from a fresh checkout, so the committed
+    database is the bot's only memory between cycles.
+
+    A `*.sqlite3` rule silently excluded it for several runs: the bankroll
+    reset every cycle, the re-entry blocklist emptied, and any open position
+    would have been orphaned -- bought, forgotten, never sold.
+    """
+
+    import subprocess
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    if not (repo / ".git").exists():
+        return  # not a checkout; nothing to assert
+
+    result = subprocess.run(
+        ["git", "check-ignore", "state/trading.sqlite3"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert result.returncode != 0, (
+        "state/trading.sqlite3 is gitignored; the scheduled runner would "
+        "lose all state between cycles"
+    )
+
+
+def test_local_databases_are_still_ignored():
+    """Only the runner's path is exempt; a local run must not be committed."""
+
+    import subprocess
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    if not (repo / ".git").exists():
+        return
+
+    result = subprocess.run(
+        ["git", "check-ignore", "memecoin_bot/data/trading.sqlite3"],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, "local databases should stay ignored"
