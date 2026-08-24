@@ -252,6 +252,7 @@ class DexScreenerClient:
             pair_address=str(raw.get("pairAddress") or "").strip(),
             price_usd=price,
             liquidity_usd=_number(_nested(raw, "liquidity", "usd")),
+            pool_base_amount=_number(_nested(raw, "liquidity", "base")),
             fdv_usd=_number(raw.get("fdv")),
             volume_24h_usd=_number(_nested(raw, "volume", "h24")),
             volume_5m_usd=_number(_nested(raw, "volume", "m5")),

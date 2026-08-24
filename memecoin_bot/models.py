@@ -42,6 +42,11 @@ class TokenSnapshot:
     liquidity_usd: float
     fdv_usd: float
     volume_24h_usd: float
+    pool_base_amount: float = 0.0
+    """Base tokens held by the pool, in whole tokens.
+
+    The pool is normally the largest holder of a meme coin by a wide margin,
+    so concentration cannot be judged without excluding it first."""
     volume_5m_usd: float = 0.0
     price_change_5m: float = 0.0
     price_change_1h: float = 0.0

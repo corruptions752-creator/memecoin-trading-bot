@@ -204,6 +204,22 @@ class TradingEngine:
                 position.quantity, decision.note,
             )
 
+    def _fetch_authority(self, snapshot: TokenSnapshot):
+        """Ask the provider about a token, passing the pool's own holding.
+
+        Without it the pool counts as the top holder, and since a pool
+        normally holds most of a meme coin's supply, every token with a
+        healthy market is rejected as if it had a whale.
+        """
+
+        try:
+            return self.authority.fetch(
+                snapshot.mint, snapshot.pool_base_amount
+            )
+        except TypeError:
+            # A provider that predates the parameter.
+            return self.authority.fetch(snapshot.mint)
+
     @staticmethod
     def _count_rejection(report: CycleReport, failure: str) -> None:
         """Bucket one rejection for the dashboard."""
@@ -330,7 +346,7 @@ class TradingEngine:
         for entry in shortlist:
             snapshot = entry.snapshot
             authority = apply_lp_policy(
-                self.authority.fetch(snapshot.mint), self.settings,
+                self._fetch_authority(snapshot), self.settings,
                 liquidity_usd=snapshot.liquidity_usd,
                 age_seconds=snapshot.age_seconds,
             )

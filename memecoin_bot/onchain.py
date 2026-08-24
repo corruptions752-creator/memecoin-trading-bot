@@ -70,12 +70,21 @@ class OnChainAuthorityProvider:
         self._cache: dict[str, _CacheEntry] = {}
         self.lookups = 0
         self.rpc_failures = 0
+        self.jupiter_lookups = 0
+        self.jupiter_failures = 0
         """A lookup that could not read the mint at all. Distinguishes 'this
         token is unsafe' from 'the endpoint would not answer' -- which look
         identical in the verdict but mean opposite things."""
 
-    def fetch(self, mint: str) -> TokenAuthority:
+    def fetch(
+        self, mint: str, pool_base_amount: float = 0.0
+    ) -> TokenAuthority:
         """Return what can be verified about ``mint``.
+
+        ``pool_base_amount`` is the pool's own holding, which must be excluded
+        before concentration means anything: the pool is normally the largest
+        holder by far, so counting it rejects every token with a healthy
+        market as if it had a whale.
 
         Never raises. Any failure yields ``None`` fields, which the screen
         reads as unknown and therefore rejects.
@@ -86,11 +95,13 @@ class OnChainAuthorityProvider:
         if cached is not None and now - cached.at < self.settings.authority_cache_seconds:
             return cached.authority
 
-        authority = self._fetch_uncached(mint)
+        authority = self._fetch_uncached(mint, pool_base_amount)
         self._cache[mint] = _CacheEntry(authority=authority, at=now)
         return authority
 
-    def _fetch_uncached(self, mint: str) -> TokenAuthority:
+    def _fetch_uncached(
+        self, mint: str, pool_base_amount: float = 0.0
+    ) -> TokenAuthority:
         """Do the actual lookups for one mint."""
 
         self.lookups += 1
@@ -102,8 +113,16 @@ class OnChainAuthorityProvider:
             self.rpc_failures += 1
             return TokenAuthority()
 
-        top_holder = self.rpc.get_top_holder_pct(mint, state.supply)
+        # Exclude the pool's own account. Its balance is known from the pair
+        # feed, so it can be matched by size rather than guessed at.
+        pool_base_units = 0
+        if pool_base_amount > 0:
+            pool_base_units = int(pool_base_amount * (10 ** state.decimals))
+        top_holder = self.rpc.get_top_holder_pct(
+            mint, state.supply, exclude_amount=pool_base_units
+        )
 
+        self.jupiter_lookups += 1
         sell_ok = None
         if state.supply > 0:
             # Simulate selling a position the size this bot would actually
@@ -114,6 +133,10 @@ class OnChainAuthorityProvider:
                 mint, probe,
                 max_price_impact_pct=self.settings.max_sell_price_impact_pct,
             )
+            if sell_ok is None:
+                # Could not complete the check, as distinct from a token that
+                # cannot be sold. Counted so a dead endpoint is visible.
+                self.jupiter_failures += 1
 
         return TokenAuthority(
             mint_authority_revoked=state.mint_authority_revoked,

@@ -243,3 +243,78 @@ def test_zero_supply_reads_as_unknown():
     client, patched = rpc_with({"value": [{"address": "A", "amount": "1"}]})
     with patched:
         assert client.get_top_holder_pct("Mint111", 0) is None
+
+
+# --- Excluding the liquidity pool ----------------------------------------
+
+def test_the_pool_is_excluded_from_concentration():
+    """A pool normally holds most of a meme coin's supply. Counting it as a
+    holder rejects every token with a healthy market as if it had a whale --
+    which is exactly what happened: every shortlisted token failed, every
+    cycle, for weeks of runs.
+    """
+
+    client, patched = rpc_with({
+        "value": [
+            {"address": "PoolAccount", "amount": "700"},   # the pool
+            {"address": "Holder", "amount": "80"},         # real top holder
+        ]
+    })
+    with patched:
+        share = client.get_top_holder_pct("Mint111", 1_000, exclude_amount=700)
+    assert share == 0.08, "pool must not count as the top holder"
+
+
+def test_without_the_pool_balance_the_pool_dominates():
+    """The behaviour being fixed, pinned so it cannot silently return."""
+
+    client, patched = rpc_with({
+        "value": [
+            {"address": "PoolAccount", "amount": "700"},
+            {"address": "Holder", "amount": "80"},
+        ]
+    })
+    with patched:
+        share = client.get_top_holder_pct("Mint111", 1_000)
+    assert share == 0.70, "unfiltered, the pool reads as a 70% whale"
+
+
+def test_the_pool_match_tolerates_small_drift():
+    """Pool balances move between the feed's snapshot and the chain read."""
+
+    client, patched = rpc_with({
+        "value": [
+            {"address": "Pool", "amount": "698"},
+            {"address": "Holder", "amount": "50"},
+        ]
+    })
+    with patched:
+        share = client.get_top_holder_pct("Mint111", 1_000, exclude_amount=700)
+    assert share == 0.05
+
+
+def test_only_one_account_is_excluded():
+    """A genuine whale holding a pool-like amount must still be counted."""
+
+    client, patched = rpc_with({
+        "value": [
+            {"address": "Pool", "amount": "300"},
+            {"address": "Whale", "amount": "300"},
+            {"address": "Small", "amount": "10"},
+        ]
+    })
+    with patched:
+        share = client.get_top_holder_pct("Mint111", 1_000, exclude_amount=300)
+    assert share == 0.30, "the second large holder must survive exclusion"
+
+
+def test_a_real_whale_is_still_caught():
+    client, patched = rpc_with({
+        "value": [
+            {"address": "Pool", "amount": "400"},
+            {"address": "Whale", "amount": "450"},
+        ]
+    })
+    with patched:
+        share = client.get_top_holder_pct("Mint111", 1_000, exclude_amount=400)
+    assert share == 0.45

@@ -186,13 +186,19 @@ class SolanaRpcClient:
         return parse_mint_account(raw, program)
 
     def get_top_holder_pct(
-        self, mint: str, supply: int, *, ignore: frozenset[str] = frozenset()
+        self, mint: str, supply: int, *, ignore: frozenset[str] = frozenset(),
+        exclude_amount: int = 0, tolerance: float = 0.02,
     ) -> float | None:
-        """Largest single holder's share of supply, as a fraction.
+        """Largest holder's share of supply, excluding the liquidity pool.
 
-        Accounts in ``ignore`` are skipped, which is how liquidity pool
-        accounts are excluded -- a pool holding most of the supply is the
-        normal, healthy case, not a whale.
+        A pool holding most of the supply is the normal, healthy case rather
+        than a whale, so it has to come out before concentration means
+        anything. ``exclude_amount`` is the pool's known balance from the pair
+        feed; the account matching it within ``tolerance`` is skipped. Only
+        one such account is dropped, so a genuine whale that happens to hold
+        a similar amount is still counted.
+
+        ``ignore`` skips accounts by address, for callers that know them.
         """
 
         if supply <= 0:
@@ -208,18 +214,25 @@ class SolanaRpcClient:
         if not isinstance(accounts, list):
             return None
 
-        largest = 0
+        holdings: list[int] = []
         for account in accounts:
             if not isinstance(account, dict):
                 continue
             if str(account.get("address") or "") in ignore:
                 continue
-            amount = account.get("amount")
             try:
-                held = int(amount)
+                holdings.append(int(account.get("amount")))
             except (TypeError, ValueError):
                 continue
-            largest = max(largest, held)
+
+        if exclude_amount > 0 and holdings:
+            window = exclude_amount * tolerance
+            for index, held in enumerate(sorted(holdings, reverse=True)):
+                if abs(held - exclude_amount) <= window:
+                    holdings.remove(held)
+                    break
+
+        largest = max(holdings, default=0)
 
         if largest <= 0:
             # No holders at all is not a clean bill of health; it means the

@@ -502,7 +502,8 @@ def test_unreachable_chain_lookups_are_counted_separately():
     class DeadRpc:
         def get_mint_state(self, mint):
             return None
-        def get_top_holder_pct(self, mint, supply, *, ignore=frozenset()):
+        def get_top_holder_pct(self, mint, supply, *, ignore=frozenset(),
+                           exclude_amount=0, tolerance=0.02):
             return None
 
     class Jup:
@@ -532,7 +533,8 @@ def test_a_reachable_chain_reports_no_failures():
     class LiveRpc:
         def get_mint_state(self, mint):
             return MintState(True, True, 10**15, 6, "TokenkegQ")
-        def get_top_holder_pct(self, mint, supply, *, ignore=frozenset()):
+        def get_top_holder_pct(self, mint, supply, *, ignore=frozenset(),
+                           exclude_amount=0, tolerance=0.02):
             return 0.04
 
     class Jup:
@@ -552,3 +554,90 @@ def test_a_reachable_chain_reports_no_failures():
     assert report.rpc_failures == 0
     assert report.candidates == 1, "a clean token on a live chain must verify"
     assert report.entered == ["GOOD"]
+
+
+def test_a_healthy_token_with_a_normal_pool_is_bought():
+    """End to end, with the pool holding most of the supply as pools do.
+
+    This is the case that failed silently for the entire run: the pool was
+    counted as the top holder, so a 70%-in-pool token -- which is completely
+    ordinary -- was rejected as a whale on every cycle.
+    """
+
+    from memecoin_bot.chain import MintState
+    from memecoin_bot.onchain import OnChainAuthorityProvider
+
+    supply = 1_000_000 * 10 ** 6
+    pool_units = int(supply * 0.70)
+
+    class Rpc:
+        def get_mint_state(self, mint):
+            return MintState(True, True, supply, 6, "TokenkegQ")
+        def get_top_holder_pct(self, mint, s, *, ignore=frozenset(),
+                               exclude_amount=0, tolerance=0.02):
+            holdings = [pool_units, int(supply * 0.05)]
+            if exclude_amount:
+                holdings = [h for h in holdings
+                            if abs(h - exclude_amount) > exclude_amount * tolerance]
+            return max(holdings) / s
+
+    class Jup:
+        def can_sell(self, mint, amount, *, max_price_impact_pct=0.15):
+            return True
+
+    settings = deterministic_settings(min_entry_score=0.01)
+    provider = OnChainAuthorityProvider(settings, rpc=Rpc(), jupiter=Jup())
+
+    token = make_snapshot(
+        mint="MintHealthy", symbol="HEALTHY", liquidity_usd=500_000.0,
+        pool_base_amount=700_000.0,
+    )
+    market = FakeMarket([token], {token.mint: token})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"), provider,
+    )
+    report = engine.run_cycle(NOW)
+
+    assert report.candidates == 1, f"rejected: {report.rejections}"
+    assert report.entered == ["HEALTHY"]
+
+
+def test_the_same_token_is_rejected_when_the_pool_is_not_declared():
+    """Pins the failure mode: no pool balance, and the pool reads as a whale."""
+
+    from memecoin_bot.chain import MintState
+    from memecoin_bot.onchain import OnChainAuthorityProvider
+
+    supply = 1_000_000 * 10 ** 6
+
+    class Rpc:
+        def get_mint_state(self, mint):
+            return MintState(True, True, supply, 6, "TokenkegQ")
+        def get_top_holder_pct(self, mint, s, *, ignore=frozenset(),
+                               exclude_amount=0, tolerance=0.02):
+            holdings = [int(supply * 0.70), int(supply * 0.05)]
+            if exclude_amount:
+                holdings = [h for h in holdings
+                            if abs(h - exclude_amount) > exclude_amount * tolerance]
+            return max(holdings) / s
+
+    class Jup:
+        def can_sell(self, mint, amount, *, max_price_impact_pct=0.15):
+            return True
+
+    settings = deterministic_settings(min_entry_score=0.01)
+    provider = OnChainAuthorityProvider(settings, rpc=Rpc(), jupiter=Jup())
+
+    token = make_snapshot(
+        mint="MintHealthy", symbol="HEALTHY", liquidity_usd=500_000.0,
+        pool_base_amount=0.0,          # not declared
+    )
+    market = FakeMarket([token], {token.mint: token})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"), provider,
+    )
+    report = engine.run_cycle(NOW)
+    assert report.candidates == 0
+    assert "whale" in report.rejections

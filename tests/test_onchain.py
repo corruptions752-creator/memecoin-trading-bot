@@ -27,7 +27,8 @@ class FakeRpc:
         self.mint_calls += 1
         return self.state
 
-    def get_top_holder_pct(self, mint, supply, *, ignore=frozenset()):
+    def get_top_holder_pct(self, mint, supply, *, ignore=frozenset(),
+                           exclude_amount=0, tolerance=0.02):
         return self.top_holder
 
 
