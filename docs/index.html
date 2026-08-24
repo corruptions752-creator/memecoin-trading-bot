@@ -175,12 +175,36 @@ td.num { font-family: var(--mono); }
 .side.sell { background: var(--border-soft); color: var(--ink-2); }
 
 .empty { color: var(--ink-3); font-size: 13px; padding: 18px 0; text-align: center; }
+.empty-rich { padding: 22px 12px; text-align: center; }
+.empty-title { font-size: 13.5px; font-weight: 620; color: var(--ink-2); }
+.empty-body { font-size: 12px; color: var(--ink-3); margin-top: 6px; line-height: 1.55; }
+
+/* --- Status strip --- */
+.strip {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 13px; margin-bottom: 14px; border-radius: 11px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 12px; color: var(--ink-2);
+}
+.strip b { color: var(--ink); font-weight: 620; font-variant-numeric: tabular-nums; }
+.strip .sep { color: var(--border); }
+
+/* --- Sparkline --- */
+.spark { width: 100%; height: 30px; display: block; margin-top: 4px; }
+.spark-caption {
+  font: 10px var(--mono); color: var(--ink-3); margin-top: 10px;
+  letter-spacing: .02em;
+}
+.spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.5;
+  stroke-linejoin: round; stroke-linecap: round; }
+.spark-dot { fill: var(--series-1); }
+.spark-label { font: 10px var(--mono); fill: var(--ink-3); }
 
 /* --- Funnel --- */
 .funnel { display: flex; gap: 8px; margin-bottom: 12px; }
-.step { flex: 1; text-align: center; padding: 9px 4px; border-radius: 9px; background: var(--border-soft); }
-.step-n { font: 620 19px var(--mono); font-variant-numeric: tabular-nums; }
-.step-l { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 600; margin-top: 3px; }
+.step { flex: 1; text-align: center; padding: 9px 2px; border-radius: 9px; background: var(--border-soft); min-width: 0; }
+.step-n { font: 620 17px var(--mono); font-variant-numeric: tabular-nums; }
+.step-l { font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 600; margin-top: 3px; }
 .step.hit { background: color-mix(in oklab, var(--series-1) 14%, transparent); }
 .step.hit .step-n { color: var(--series-1); }
 .why { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -203,6 +227,14 @@ td.num { font-family: var(--mono); }
     <span class="badge paper" id="mode">PAPER</span>
   </header>
   <div class="sub" id="updated">connecting…</div>
+
+  <div class="strip" id="strip" hidden>
+    <span>watching <b id="strip-scanned">—</b> tokens</span>
+    <span class="sep">·</span>
+    <span>next check <b id="strip-next">—</b></span>
+    <span class="sep">·</span>
+    <span><b id="strip-trades">0</b> trades so far</span>
+  </div>
 
   <div class="halt" id="halt">
     <span class="halt-icon">■</span>
@@ -235,7 +267,7 @@ td.num { font-family: var(--mono); }
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="chart-card" hidden>
     <div class="card-head">
       <div class="card-title">Equity — realized, per closed trade</div>
       <div class="card-meta" id="chart-meta"></div>
@@ -253,6 +285,9 @@ td.num { font-family: var(--mono); }
       <div class="card-meta" id="scan-when"></div>
     </div>
     <div id="scan"><div class="empty">Waiting for the first scan…</div></div>
+    <div class="spark-caption" id="spark-caption" hidden></div>
+    <svg class="spark" id="spark" viewBox="0 0 300 30" preserveAspectRatio="none"
+         role="img" aria-label="Tokens scanned per cycle recently"></svg>
   </div>
 
   <div class="card">
@@ -274,8 +309,10 @@ td.num { font-family: var(--mono); }
   <div class="card">
     <div class="card-head">
       <div class="card-title">Recent fills</div>
-      <div class="card-meta">newest first · negative cost = account rent reclaimed</div>
+      <div class="card-meta">newest first</div>
     </div>
+    <div class="note" id="fills-note" hidden>A negative net cost is the
+      account rent coming back when a position is fully closed.</div>
     <div class="scroll" id="fills"><div class="empty">No fills yet.</div></div>
   </div>
 
@@ -414,7 +451,11 @@ function drawChart(equity, start) {
 function renderPositions(positions) {
   const host = $("positions");
   if (!positions.length) {
-    host.innerHTML = '<div class="empty">No open positions.</div>';
+    host.innerHTML = `<div class="empty-rich">
+      <div class="empty-title">Nothing held right now</div>
+      <div class="empty-body">The bot buys only when a token clears every
+        filter. Most cycles that is nothing — the scan above shows why.</div>
+    </div>`;
     return;
   }
   host.innerHTML = positions.map(p => {
@@ -467,7 +508,8 @@ function renderScan(activity, positions, maxPositions) {
 
   const steps = [
     ["seen", activity.scanned],
-    ["passed", activity.candidates],
+    ["shortlist", activity.shortlisted ?? 0],
+    ["verified", activity.candidates],
     ["bought", activity.entered],
   ];
   const funnel = steps.map(([label, n]) => `
@@ -496,11 +538,69 @@ function renderScan(activity, positions, maxPositions) {
   host.innerHTML = funnel ? `<div class="funnel">${funnel}</div>${chips}${note}` : "";
 }
 
+// Cycles land roughly every 15 minutes, so an estimate of the next one is
+// more use than a stopwatch on the last.
+const CYCLE_SECONDS = 15 * 60;
+
+function renderStrip(state) {
+  const strip = $("strip");
+  const a = state.activity;
+  if (!a) { strip.hidden = true; return; }
+  strip.hidden = false;
+
+  $("strip-scanned").textContent = a.scanned.toLocaleString();
+  $("strip-trades").textContent = state.stats.trades;
+
+  const since = Date.now() / 1000 - (state.generated_at || 0);
+  const remaining = CYCLE_SECONDS - (since % CYCLE_SECONDS);
+  $("strip-next").textContent = since > CYCLE_SECONDS * 2
+    ? "overdue"
+    : "~" + Math.max(1, Math.round(remaining / 60)) + "m";
+}
+
+function drawSpark(history) {
+  const svg = $("spark");
+  svg.innerHTML = "";
+  if (!history || history.length < 2) {
+    $("spark-caption").hidden = true;
+    return;
+  }
+
+  const values = history.map(h => h.scanned);
+  const W = 300, H = 30, PAD = 3;
+  const hi = Math.max(...values), lo = Math.min(...values);
+  const span = (hi - lo) || 1;
+  const x = i => (i / (values.length - 1)) * W;
+  const y = v => PAD + (1 - (v - lo) / span) * (H - PAD * 2);
+
+  const ns = "http://www.w3.org/2000/svg";
+  const line = document.createElementNS(ns, "polyline");
+  line.setAttribute("points", values.map((v, i) => `${x(i)},${y(v)}`).join(" "));
+  line.setAttribute("class", "spark-line");
+  svg.appendChild(line);
+
+  const dot = document.createElementNS(ns, "circle");
+  dot.setAttribute("cx", x(values.length - 1));
+  dot.setAttribute("cy", y(values[values.length - 1]));
+  dot.setAttribute("r", 2.5);
+  dot.setAttribute("class", "spark-dot");
+  svg.appendChild(dot);
+
+  const caption = $("spark-caption");
+  caption.hidden = false;
+  caption.textContent =
+    `tokens seen per cycle · last ${values.length} · now ${values[values.length - 1]}`;
+}
+
 // --- Tables --------------------------------------------------------------
 function renderClosed(rows) {
   const host = $("closed");
   if (!rows.length) {
-    host.innerHTML = '<div class="empty">No closed trades yet.</div>';
+    host.innerHTML = `<div class="empty-rich">
+      <div class="empty-title">No completed trades yet</div>
+      <div class="empty-body">Results appear here once a position closes.
+        Under about 30 trades the numbers are still noise.</div>
+    </div>`;
     return;
   }
   host.innerHTML = `<table><thead><tr>
@@ -521,7 +621,11 @@ function renderClosed(rows) {
 function renderFills(rows) {
   const host = $("fills");
   if (!rows.length) {
-    host.innerHTML = '<div class="empty">No fills yet.</div>';
+    host.innerHTML = `<div class="empty-rich">
+      <div class="empty-title">No orders placed yet</div>
+      <div class="empty-body">Every buy and sell will be logged here with its
+        price, size and reason.</div>
+    </div>`;
     return;
   }
   host.innerHTML = `<table><thead><tr>
@@ -613,11 +717,17 @@ async function refresh() {
     $("closed-meta").textContent = s.trades
       ? `expectancy ${money(s.expectancy_usd)}/trade` : "";
 
+    renderStrip(state);
     renderScan(state.activity, state.positions, state.max_positions);
-    drawChart(state.equity, state.starting_bankroll);
+    drawSpark(state.scan_history);
+    // An empty plot is a large block of nothing; show it once there is a
+    // curve to draw.
+    $("chart-card").hidden = s.trades === 0;
+    if (s.trades > 0) drawChart(state.equity, state.starting_bankroll);
     renderPositions(state.positions);
     renderClosed(state.closed);
     renderFills(state.recent_fills);
+    $("fills-note").hidden = state.recent_fills.length === 0;
 
     $("foot").innerHTML = state.mode === "paper"
       ? "Paper trading — no real funds are at risk.<br>Every figure is read from the bot's own database."
