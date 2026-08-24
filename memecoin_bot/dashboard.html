@@ -202,9 +202,9 @@ td.num { font-family: var(--mono); }
 
 /* --- Funnel --- */
 .funnel { display: flex; gap: 8px; margin-bottom: 12px; }
-.step { flex: 1; text-align: center; padding: 9px 4px; border-radius: 9px; background: var(--border-soft); }
-.step-n { font: 620 19px var(--mono); font-variant-numeric: tabular-nums; }
-.step-l { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 600; margin-top: 3px; }
+.step { flex: 1; text-align: center; padding: 9px 2px; border-radius: 9px; background: var(--border-soft); min-width: 0; }
+.step-n { font: 620 17px var(--mono); font-variant-numeric: tabular-nums; }
+.step-l { font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 600; margin-top: 3px; }
 .step.hit { background: color-mix(in oklab, var(--series-1) 14%, transparent); }
 .step.hit .step-n { color: var(--series-1); }
 .why { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -508,7 +508,8 @@ function renderScan(activity, positions, maxPositions) {
 
   const steps = [
     ["seen", activity.scanned],
-    ["passed", activity.candidates],
+    ["shortlist", activity.shortlisted ?? 0],
+    ["verified", activity.candidates],
     ["bought", activity.entered],
   ];
   const funnel = steps.map(([label, n]) => `

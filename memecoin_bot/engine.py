@@ -45,6 +45,9 @@ class CycleReport:
     a quiet scan instead of showing an empty screen."""
     candidates: int = 0
     """Passed every safety check and scored above the entry threshold."""
+    shortlisted: int = 0
+    """Cleared the free market checks and so were worth paying for on-chain
+    verification. Contract checks run only on these."""
 
 
 class TradingEngine:
@@ -196,6 +199,13 @@ class TradingEngine:
                 position.quantity, decision.note,
             )
 
+    @staticmethod
+    def _count_rejection(report: CycleReport, failure: str) -> None:
+        """Bucket one rejection for the dashboard."""
+
+        bucket = categorize(failure)
+        report.rejections[bucket] = report.rejections.get(bucket, 0) + 1
+
     def _record_activity(self, report: CycleReport, at: float) -> None:
         """Save what this scan saw, so a quiet market is explicable."""
 
@@ -208,6 +218,7 @@ class TradingEngine:
                 scanned=report.scanned,
                 rejected=report.rejected,
                 candidates=report.candidates,
+                shortlisted=report.shortlisted,
                 entered=len(report.entered),
                 rejections=report.rejections,
                 skipped_reason=report.skipped_reason,
@@ -273,7 +284,8 @@ class TradingEngine:
         held = {position.mint for position in self.positions}
         blocked = self.store.blocked_mints(at)
 
-        ranked = []
+        shortlist: list = []
+        ranked: list = []
         for snapshot in candidates:
             if snapshot.mint in held or snapshot.mint == self.settings.quote_mint:
                 continue
@@ -284,6 +296,32 @@ class TradingEngine:
                 )
                 continue
 
+            # Phase one: the market checks. These are local and free, so
+            # they run on everything.
+            market_verdict = screen(
+                snapshot, self.settings, require_contract_checks=False
+            )
+            if not market_verdict.passed:
+                report.rejected += 1
+                self._count_rejection(report, market_verdict.failures[0])
+                continue
+
+            entry = decide_entry(snapshot, self.settings)
+            if entry is None:
+                report.rejected += 1
+                report.rejections["low score"] = (
+                    report.rejections.get("low score", 0) + 1
+                )
+                continue
+            shortlist.append(entry)
+
+        # Phase two: the contract checks. Each one costs several network
+        # round trips against rate-limited endpoints, so they run only on
+        # what survived phase one. Checking all of them first turned a
+        # one-minute cycle into a ten-minute one and left the dashboard
+        # permanently stale.
+        for entry in shortlist:
+            snapshot = entry.snapshot
             authority = apply_lp_policy(
                 self.authority.fetch(snapshot.mint), self.settings,
                 liquidity_usd=snapshot.liquidity_usd,
@@ -295,20 +333,12 @@ class TradingEngine:
             )
             if not verdict.passed:
                 report.rejected += 1
-                bucket = categorize(verdict.failures[0])
-                report.rejections[bucket] = report.rejections.get(bucket, 0) + 1
+                self._count_rejection(report, verdict.failures[0])
                 log.debug("%s", verdict.describe())
-                continue
-
-            entry = decide_entry(snapshot, self.settings)
-            if entry is None:
-                report.rejected += 1
-                report.rejections["low score"] = (
-                    report.rejections.get("low score", 0) + 1
-                )
                 continue
             ranked.append(entry)
 
+        report.shortlisted = len(shortlist)
         report.candidates = len(ranked)
 
         ranked.sort(key=lambda entry: entry.score, reverse=True)

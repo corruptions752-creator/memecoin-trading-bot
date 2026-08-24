@@ -414,3 +414,79 @@ def test_cooldown_can_be_disabled_by_configuration():
     market.set_price(snapshot.mint, 0.0005)
     engine.run_cycle(NOW + 300)
     assert not store.is_blocked(snapshot.mint, NOW + 300)
+
+
+# --- Screening order -----------------------------------------------------
+
+class CountingAuthority:
+    """Authority provider that records how often it is consulted."""
+
+    def __init__(self, authority):
+        self.authority = authority
+        self.calls = []
+
+    def fetch(self, mint):
+        self.calls.append(mint)
+        return self.authority
+
+
+def test_contract_checks_run_only_on_shortlisted_tokens():
+    """Each on-chain check is several rate-limited round trips. Running them
+    on everything turned a one-minute cycle into ten and left the dashboard
+    permanently stale."""
+
+    good = make_snapshot(mint="MintGood", symbol="GOOD")
+    rejects = [
+        make_snapshot(mint=f"MintThin{i}", symbol=f"T{i}", liquidity_usd=100.0)
+        for i in range(40)
+    ]
+    settings = deterministic_settings(min_entry_score=0.01)
+    market = FakeMarket(
+        candidates=[good] + rejects,
+        prices={s.mint: s for s in [good] + rejects},
+    )
+    authority = CountingAuthority(safe_authority())
+    store = Store(":memory:")
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), store, authority,
+    )
+    engine.run_cycle(NOW)
+
+    assert len(authority.calls) <= 2, (
+        f"consulted the chain {len(authority.calls)} times for 41 tokens"
+    )
+    assert "MintGood" in authority.calls
+
+
+def test_the_shortlist_size_is_reported():
+    good = make_snapshot(mint="MintGood", symbol="GOOD")
+    thin = make_snapshot(mint="MintThin", symbol="THIN", liquidity_usd=50.0)
+    settings = deterministic_settings(min_entry_score=0.01)
+    market = FakeMarket([good, thin], {s.mint: s for s in (good, thin)})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"),
+        CountingAuthority(safe_authority()),
+    )
+    report = engine.run_cycle(NOW)
+    assert report.shortlisted == 1
+    assert report.candidates == 1
+
+
+def test_a_contract_rejection_is_still_bucketed():
+    """Phase-two rejections must show on the dashboard like any other."""
+
+    from memecoin_bot.safety import TokenAuthority
+
+    good = make_snapshot(mint="MintGood", symbol="GOOD")
+    settings = deterministic_settings(min_entry_score=0.01)
+    market = FakeMarket([good], {good.mint: good})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"),
+        CountingAuthority(safe_authority(sell_simulation_ok=False)),
+    )
+    report = engine.run_cycle(NOW)
+    assert report.candidates == 0
+    assert "unsellable" in report.rejections
