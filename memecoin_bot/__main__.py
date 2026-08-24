@@ -11,6 +11,8 @@ Usage::
     python -m memecoin_bot verify <mint>   # run every safety check on one token
     python -m memecoin_bot doctor   # hit the live APIs and show raw vs parsed
     python -m memecoin_bot dashboard  # web dashboard only, no trading
+    python -m memecoin_bot run --once # one cycle then exit (CI schedulers)
+    python -m memecoin_bot export     # write a dashboard snapshot to JSON
 """
 
 import argparse
@@ -47,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
         "command",
         choices=(
             "run", "scan", "report", "close", "simulate", "sweep", "verify",
-            "doctor", "dashboard",
+            "doctor", "dashboard", "export",
         ),
         help="what to do",
     )
@@ -62,6 +64,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-dashboard", action="store_true",
         help="run the trading loop without serving the dashboard",
+    )
+    parser.add_argument(
+        "--once", action="store_true",
+        help="run a single trading cycle and exit (for scheduled runners)",
+    )
+    parser.add_argument(
+        "--out", default="docs/state.json",
+        help="where export writes the dashboard snapshot",
     )
     args = parser.parse_args(argv)
 
@@ -139,9 +149,24 @@ def main(argv: list[str] | None = None) -> int:
         OnChainAuthorityProvider(settings),
     )
 
+    if args.command == "export":
+        return _export(settings, store, args.out, log)
+
     if args.command == "close":
         closed = engine.close_all()
         log.info("closed %d position(s)", closed)
+        return 0
+
+    if args.once:
+        # One cycle, then exit. This is how a scheduled runner (GitHub
+        # Actions, cron) drives the bot without a long-lived process.
+        report = engine.run_cycle()
+        log.info(
+            "cycle: scanned %d, candidates %d, entered %s, exited %s",
+            report.scanned, report.candidates, report.entered or "none",
+            [f"{s}:{r.value}" for s, r in report.exited] or "none",
+        )
+        _export(settings, store, args.out, log)
         return 0
 
     if not args.no_dashboard:
@@ -160,6 +185,33 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     engine.run_forever()
+    return 0
+
+
+def _export(settings, store, path: str, log) -> int:
+    """Write the dashboard's state to a JSON file.
+
+    A scheduled runner has no long-lived server, so the dashboard reads a
+    committed snapshot instead of a live endpoint.
+    """
+
+    import json
+    from pathlib import Path
+
+    from .dashboard import build_state
+
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    state = build_state(settings, store)
+    target.write_text(json.dumps(state, indent=1), encoding="utf-8")
+
+    # The page ships alongside the snapshot so the pair can be served
+    # statically by GitHub Pages with nothing else present.
+    page = Path(__file__).parent / "dashboard.html"
+    (target.parent / "index.html").write_text(
+        page.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    log.info("wrote %s and %s", target, target.parent / "index.html")
     return 0
 
 

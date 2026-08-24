@@ -544,12 +544,36 @@ function escapeHtml(text) {
 
 // --- Poll ----------------------------------------------------------------
 let lastOk = 0;
+let lastState = {};
+
+// Served by the bot: read the live endpoint. Served statically (GitHub
+// Pages), there is no endpoint, so fall back to the committed snapshot.
+let endpoint = "/api/state";
+let staticMode = false;
+
+async function load() {
+  try {
+    const response = await fetch(endpoint, { cache: "no-store" });
+    if (!response.ok) throw new Error(String(response.status));
+    return await response.json();
+  } catch (error) {
+    if (endpoint === "/api/state") {
+      endpoint = "state.json";
+      staticMode = true;
+      const retry = await fetch(endpoint, { cache: "no-store" });
+      if (!retry.ok) throw error;
+      return await retry.json();
+    }
+    throw error;
+  }
+}
 
 async function refresh() {
   try {
-    const state = await (await fetch("/api/state", { cache: "no-store" })).json();
+    const state = await load();
     if (state.error) throw new Error(state.error);
     lastOk = Date.now();
+    lastState = state;
 
     $("mode").textContent = state.mode.toUpperCase();
     const equity = state.bankroll;
@@ -593,6 +617,15 @@ async function refresh() {
   } catch (error) {
     $("updated").innerHTML =
       '<span class="dot stale"></span>lost contact with the bot — retrying';
+    return;
+  }
+  if (staticMode) {
+    // The snapshot carries its own timestamp; the page is only as fresh as
+    // the last scheduled run, and saying "live" would be a lie.
+    const snapAge = Date.now() / 1000 - (lastState.generated_at || 0);
+    const stale = snapAge > 1800;
+    $("updated").innerHTML = `<span class="dot${stale ? " stale" : ""}"></span>` +
+      `snapshot · ${ago(snapAge)}`;
     return;
   }
   const age = (Date.now() - lastOk) / 1000;

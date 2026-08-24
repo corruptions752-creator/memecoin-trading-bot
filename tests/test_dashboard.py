@@ -219,3 +219,62 @@ def test_gains_and_losses_are_not_colour_alone():
 
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert "▲" in page and "▼" in page
+
+
+# --- Static snapshot export ---------------------------------------------
+
+def test_export_writes_a_snapshot_and_the_page(tmp_path):
+    """A scheduled runner has no server, so the page and its data ship
+    together as files."""
+
+    import logging
+    from memecoin_bot.__main__ import _export
+
+    settings, store = traded(tmp_path)
+    out = tmp_path / "pages" / "state.json"
+    code = _export(settings, store, str(out), logging.getLogger("t"))
+
+    assert code == 0
+    assert out.exists()
+    assert (out.parent / "index.html").exists()
+
+
+def test_the_snapshot_matches_the_live_state(tmp_path):
+    import json
+    import logging
+    from memecoin_bot.__main__ import _export
+
+    settings, store = traded(tmp_path)
+    out = tmp_path / "state.json"
+    _export(settings, store, str(out), logging.getLogger("t"))
+
+    snapshot = json.loads(out.read_text())
+    live = build_state(settings, store)
+    assert snapshot["positions"][0]["symbol"] == live["positions"][0]["symbol"]
+    assert snapshot["bankroll"] == live["bankroll"]
+
+
+def test_the_snapshot_carries_its_own_timestamp(tmp_path):
+    """The static page must be able to say how stale it is."""
+
+    import json
+    import logging
+    from memecoin_bot.__main__ import _export
+
+    settings, store = traded(tmp_path)
+    out = tmp_path / "state.json"
+    _export(settings, store, str(out), logging.getLogger("t"))
+    assert json.loads(out.read_text())["generated_at"] > 0
+
+
+def test_the_page_falls_back_to_the_snapshot():
+    """Served statically there is no /api/state, so it must retry state.json
+    and stop claiming to be live."""
+
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert '"state.json"' in page
+    assert "staticMode" in page
+    assert "snapshot ·" in page

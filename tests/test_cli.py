@@ -130,3 +130,34 @@ def test_simulate_runs_from_the_cli(capsys):
 def test_sweep_runs_from_the_cli(capsys):
     assert main(["sweep"]) == 0
     assert "Losing runs" in capsys.readouterr().out
+
+
+def test_run_once_executes_a_single_cycle(tmp_path, monkeypatch):
+    """The scheduled-runner path: one cycle, write the snapshot, exit."""
+
+    monkeypatch.setenv("MEMEBOT_DB_PATH", str(tmp_path / "t.sqlite3"))
+    out = tmp_path / "state.json"
+    code = main(["run", "--once", "--out", str(out)])
+    assert code == 0
+    assert out.exists()
+
+
+def test_export_runs_from_the_cli(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMEBOT_DB_PATH", str(tmp_path / "t.sqlite3"))
+    out = tmp_path / "s.json"
+    assert main(["export", "--out", str(out)]) == 0
+    assert out.exists()
+
+
+def test_the_port_defaults_to_the_environment(monkeypatch):
+    """Hosts hand the public port in $PORT; ignoring it makes the dashboard
+    unreachable from outside."""
+
+    from memecoin_bot.dashboard import default_port
+
+    monkeypatch.setenv("PORT", "3141")
+    assert default_port() == 3141
+    monkeypatch.setenv("PORT", "not-a-port")
+    assert default_port() == 8080
+    monkeypatch.delenv("PORT", raising=False)
+    assert default_port() == 8080

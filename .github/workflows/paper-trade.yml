@@ -1,0 +1,91 @@
+# Paper trading on a schedule, at no cost.
+#
+# GitHub runs one trading cycle every 15 minutes, commits the resulting state
+# back to this repository, and publishes the dashboard to GitHub Pages. No
+# server, no credit card, nothing to keep running.
+#
+# What this costs you in strategy quality is real and worth knowing: the loop
+# runs every ~15 minutes instead of every 30 seconds, so stops and targets are
+# checked far less often. On assets that can halve in minutes, that makes exits
+# meaningfully worse. Treat the results as a pessimistic floor -- if the
+# strategy works at this cadence, a faster one should do better, not worse.
+#
+# Minutes: a PUBLIC repository gets unlimited free Actions minutes. A private
+# one gets 2,000/month on the Free plan, so raise the interval to 30 minutes
+# (cron "*/30 * * * *") to stay inside it.
+
+name: Paper trade
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub's floor is 5 minutes and runs are frequently
+    # delayed at busy times, especially on the hour -- so the offset avoids
+    # :00 rather than fighting for it.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:        # lets you trigger a run by hand from the phone
+
+# One run at a time. Two cycles writing the same database would corrupt the
+# position ledger.
+concurrency:
+  group: paper-trade
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run one trading cycle
+        env:
+          MEMEBOT_MODE: paper
+          MEMEBOT_BANKROLL_USD: "1000"
+          MEMEBOT_DB_PATH: state/trading.sqlite3
+          # A scan every 15 minutes cannot manage a 6-hour position properly,
+          # so hold longer and give the trade room rather than pretending the
+          # cadence is faster than it is.
+          MEMEBOT_MAX_HOLD_SECONDS: "86400"
+          MEMEBOT_STOP_LOSS_PCT: "0.25"
+        run: python -m memecoin_bot run --once --out docs/state.json
+
+      - name: Commit state
+        run: |
+          git config user.name "paper-trade-bot"
+          git config user.email "actions@github.com"
+          git add -A state docs
+          if git diff --staged --quiet; then
+            echo "nothing changed this cycle"
+          else
+            git commit -m "Paper trading cycle $(date -u +'%Y-%m-%d %H:%M UTC')"
+            # Another cycle may have pushed while this one ran.
+            git pull --rebase --autostash origin main || true
+            git push
+          fi
+
+  publish:
+    needs: cycle
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4

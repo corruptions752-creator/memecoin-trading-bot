@@ -1,5 +1,76 @@
 # Running it on your phone
 
+Two ways. Pick by whether you can pay for hosting.
+
+| | Free forever | Cadence | Setup |
+|---|---|---|---|
+| **GitHub Actions** | yes, no card | every ~15 min | all from a phone |
+| **Replit / a VM** | needs paid always-on | every 30s | shell needed |
+
+The cadence difference is real and matters — see the warning below.
+
+---
+
+# Option A — GitHub Actions (free, no credit card)
+
+GitHub runs the bot on its own servers every 15 minutes, commits the results
+back to the repo, and publishes the dashboard as a web page. Nothing to keep
+running, nothing to pay.
+
+## 1. Make the repo public
+
+Repo → **Settings** → scroll to **Danger Zone** → **Change visibility** →
+**Public**.
+
+This is what makes it free: public repos get unlimited Actions minutes, private
+ones get 2,000/month. There are no secrets in this code — no keys, no wallet,
+no personal data — so public costs you nothing. (If you would rather keep it
+private, edit `.github/workflows/paper-trade.yml` and change the cron to
+`*/30 * * * *` to stay inside the free 2,000.)
+
+## 2. Turn on Actions and Pages
+
+- **Settings → Actions → General** → allow all actions.
+- **Settings → Pages** → Source: **GitHub Actions**.
+
+## 3. Start it
+
+**Actions** tab → **Paper trade** → **Run workflow**. It then repeats every
+15 minutes on its own.
+
+## 4. Watch it
+
+Your dashboard appears at:
+
+```
+https://corruptions752-creator.github.io/memecoin-trading-bot/
+```
+
+Add it to your home screen. It shows a **snapshot**, not a live feed — the
+header tells you how old it is.
+
+## The honest cost of free
+
+GitHub's scheduler will not run anything faster than every 5 minutes, and
+delays it further when busy. So the bot checks its stops every ~15 minutes
+instead of every 30 seconds.
+
+On meme coins that is a real handicap. A token can fall 50% between two checks,
+and the bot will only find out at the next one. The workflow compensates by
+widening the stop to 25% and holding for up to a day, because pretending a
+15-minute loop is a 30-second loop would just produce wrong results.
+
+**Read the results as a pessimistic floor.** If the strategy works at this
+cadence, a faster one should do better. If it loses here, that does not prove
+it would lose at 30 seconds — but it is not evidence to risk money on either.
+
+---
+
+# Option B — Replit (needs paid always-on for 24/7)
+
+Free Replit sleeps when you close the tab, so the loop stops. Fine for watching
+it work for an hour; not for three unbroken weeks.
+
 Three taps and about two minutes. Nothing to install.
 
 ## 1. Import into Replit
