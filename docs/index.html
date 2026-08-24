@@ -551,16 +551,24 @@ let lastState = {};
 let endpoint = "/api/state";
 let staticMode = false;
 
+// GitHub Pages serves through a CDN that caches for minutes at a time, and
+// `no-store` only governs the browser's own cache. A unique query string per
+// request is what actually gets past the edge, so the page shows the newest
+// snapshot rather than a cached one.
+function bust(url) {
+  return url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+}
+
 async function load() {
   try {
-    const response = await fetch(endpoint, { cache: "no-store" });
+    const response = await fetch(bust(endpoint), { cache: "no-store" });
     if (!response.ok) throw new Error(String(response.status));
     return await response.json();
   } catch (error) {
     if (endpoint === "/api/state") {
       endpoint = "state.json";
       staticMode = true;
-      const retry = await fetch(endpoint, { cache: "no-store" });
+      const retry = await fetch(bust(endpoint), { cache: "no-store" });
       if (!retry.ok) throw error;
       return await retry.json();
     }
@@ -635,6 +643,14 @@ async function refresh() {
 
 refresh();
 setInterval(refresh, 5000);
+
+// Phones suspend timers in backgrounded tabs, so a page reopened from the
+// home screen would otherwise show whatever it held when it was put away.
+// Fetch immediately on return instead of waiting for the next tick.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refresh();
+});
+window.addEventListener("pageshow", refresh);
 </script>
 </body>
 </html>
