@@ -60,20 +60,24 @@ class Settings:
     min_pair_age_seconds: int = 30 * 60
     """Refuse tokens younger than this. The first minutes are where the
     sniper bots and the instant rugs live."""
-    max_pair_age_seconds: int = 180 * 24 * 3_600
-    """A backstop against abandoned pools, not a momentum filter.
+    max_pair_age_seconds: int = 0
+    """Upper age bound, or 0 for none. Default: none.
 
-    This was one week, on the reasoning that older pairs were "past the
-    momentum window" -- which confuses a pair's age with its momentum. The
-    strategy measures momentum directly from the 5-minute and 1-hour moves,
-    so an established token making a sharp move is exactly as valid a
-    momentum trade as a new one. On a live scan the week-long cap rejected
-    67 of 151 pairs, more than any other rule, for a reason that does not
-    hold up.
+    Every risk an age cap might stand in for is already checked directly, and
+    more precisely:
 
-    Whether a pool is dead is answered better by the liquidity and volume
-    floors than by its age, so this is now only a guard against pairs that
-    have been abandoned for months."""
+    * rug risk -> the contract checks (mint and freeze authority, LP, holder
+      concentration, and a simulated sell);
+    * a dead pool -> the liquidity and volume floors;
+    * faded momentum -> the 5-minute and 1-hour moves the strategy scores.
+
+    That leaves no residual risk for age to catch above the 30-minute
+    minimum, which is the guard that actually matters. Successive live scans
+    had this rule rejecting 67 then 37 candidates for a reason nothing
+    supports, so it is off rather than merely widened.
+
+    Set a value to re-enable it; the minimum age is unaffected either way.
+    """
     max_fdv_usd: float = 50_000_000.0
     min_buy_sell_ratio_5m: float = 0.8
     liquidity_exit_floor_pct: float = 0.5

@@ -66,12 +66,8 @@ def test_brand_new_pair_rejected(settings):
     assert any("old, minimum" in r for r in report.failures)
 
 
-def test_stale_pair_rejected(settings):
-    """Superseded: 30 days is no longer stale. See the abandoned-pool test.
-
-    The upper age bound is now a guard against months-abandoned pools rather
-    than a momentum filter, so a month-old pair is a normal candidate.
-    """
+def test_a_month_old_pair_is_a_normal_candidate(settings):
+    """Age is not a disqualifier; see test_age_alone_no_longer_rejects."""
 
     report = screen(
         make_snapshot(pair_created_at=NOW - 30 * 86_400),
@@ -150,13 +146,39 @@ def test_an_established_token_is_not_rejected_for_age(settings):
     assert report.passed, report.failures
 
 
-def test_an_abandoned_pool_is_still_rejected(settings):
+def test_age_alone_no_longer_rejects_anything(settings):
+    """Every risk an age cap stood in for is checked directly elsewhere."""
+
+    from memecoin_bot.config import Settings
+
+    old_but_healthy = make_snapshot(pair_created_at=NOW - 900 * 86_400)
+    assert screen(old_but_healthy, settings, safe_authority()).passed
+
+
+def test_the_age_cap_can_be_re_enabled():
+    from memecoin_bot.config import Settings
+
+    capped = Settings(max_pair_age_seconds=7 * 86_400)
     report = screen(
-        make_snapshot(pair_created_at=NOW - 400 * 86_400),
-        settings, safe_authority(),
+        make_snapshot(pair_created_at=NOW - 30 * 86_400),
+        capped, safe_authority(),
     )
     assert not report.passed
     assert any("abandoned" in r for r in report.failures)
+
+
+def test_an_old_dead_pool_is_still_rejected_on_its_merits(settings):
+    """Not by age -- by the liquidity and volume floors that mean 'dead'."""
+
+    report = screen(
+        make_snapshot(
+            pair_created_at=NOW - 900 * 86_400, liquidity_usd=200.0,
+            volume_24h_usd=50.0,
+        ),
+        settings, safe_authority(),
+    )
+    assert not report.passed
+    assert any("liquidity" in r for r in report.failures)
 
 
 def test_the_minimum_age_still_blocks_fresh_launches(settings):
@@ -167,3 +189,47 @@ def test_the_minimum_age_still_blocks_fresh_launches(settings):
     )
     assert not report.passed
     assert any("old, minimum" in r for r in report.failures)
+
+
+def test_every_failure_message_has_a_category():
+    """A miscategorised rejection shows as 'other' on the dashboard, which
+    hides why the bot is not trading.
+
+    This regressed once already: the age message was reworded and the
+    categoriser was not, so 37 of 150 rejections on a live scan became
+    'other'. Driving real failures through the categoriser catches that.
+    """
+
+    from memecoin_bot.safety import categorize
+
+    provokers = [
+        make_snapshot(price_usd=0.0),
+        make_snapshot(liquidity_usd=1.0),
+        make_snapshot(volume_24h_usd=1.0),
+        make_snapshot(pair_created_at=0),
+        make_snapshot(pair_created_at=NOW - 60),
+        make_snapshot(pair_created_at=NOW - 900 * 86_400),
+        make_snapshot(fdv_usd=9e12),
+        make_snapshot(liquidity_usd=30_000.0, volume_24h_usd=9e9),
+        make_snapshot(buys_5m=1, sells_5m=999),
+    ]
+    seen = set()
+    for snapshot in provokers:
+        report = screen(snapshot, settings_for_test(), safe_authority())
+        for failure in report.failures:
+            bucket = categorize(failure)
+            assert bucket != "other", f"uncategorised: {failure!r}"
+            seen.add(bucket)
+
+    # And the contract-side messages.
+    from memecoin_bot.safety import TokenAuthority
+    blank = screen(make_snapshot(), settings_for_test(), TokenAuthority())
+    for failure in blank.failures:
+        assert categorize(failure) != "other", f"uncategorised: {failure!r}"
+
+    assert len(seen) >= 6
+
+
+def settings_for_test():
+    from memecoin_bot.config import Settings
+    return Settings()

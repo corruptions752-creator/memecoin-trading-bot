@@ -70,7 +70,7 @@ _CATEGORIES = (
     ("24h volume", "volume"),
     ("pair only", "too new"),
     ("pair age", "age unknown"),
-    ("past the momentum window", "too old"),
+    ("likely abandoned", "abandoned"),
     ("FDV", "valuation"),
     ("wash trading", "wash traded"),
     ("sell pressure", "sell pressure"),
@@ -142,7 +142,7 @@ def screen(
             f"pair only {age / 60:.0f}m old, minimum "
             f"{settings.min_pair_age_seconds / 60:.0f}m"
         )
-    elif age > settings.max_pair_age_seconds:
+    elif settings.max_pair_age_seconds and age > settings.max_pair_age_seconds:
         failures.append(
             f"pair {age / 86_400:.0f}d old, likely abandoned"
         )
