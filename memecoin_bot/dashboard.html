@@ -95,6 +95,8 @@ h1 {
 }
 .badge.risk { color: var(--warn); background: #fab2191f;
   border-color: color-mix(in oklab, var(--warn) 32%, transparent); }
+.badge.warn { color: var(--bad); background: var(--bad-dim);
+  border-color: color-mix(in oklab, var(--bad) 38%, transparent); }
 .sub {
   margin-left: auto; font-size: 10.5px; color: var(--ink-3);
   display: flex; align-items: center; gap: 6px; white-space: nowrap;
@@ -260,6 +262,7 @@ h1 {
 .pos-sym { font: 700 14px var(--mono); letter-spacing: .02em; }
 .pos-tag { font: 700 8.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
   padding: 5px 7px; border-radius: 5px; background: var(--good-dim); color: var(--good); }
+.pos-tag.unverified { background: #fab2191f; color: var(--warn); }
 .pos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
 .pos-cell-label { font-size: 8.5px; color: var(--ink-3); text-transform: uppercase;
   letter-spacing: .1em; font-weight: 700; }
@@ -316,6 +319,7 @@ td { padding: 9px 12px 9px 0; border-top: 1px solid var(--line-soft);
     <h1>Trading Bot</h1>
     <span class="badge" id="mode">PAPER</span>
     <span class="badge risk" id="profile" hidden>—</span>
+    <span class="badge warn" id="verify" hidden>ADVISORY</span>
     <span class="sub" id="updated">connecting…</span>
   </header>
 
@@ -568,6 +572,10 @@ function renderPositions(positions) {
     <div class="position">
       <div class="pos-head">
         <span class="pos-sym">${escapeHtml(p.symbol)}</span>
+        ${p.unverified && p.unverified.length
+          ? '<span class="pos-tag unverified" title="' +
+            escapeHtml(p.unverified.join("; ")) + '">⚠ Unverified</span>'
+          : ""}
         ${p.took_profit ? '<span class="pos-tag">▲ Half banked</span>' : ""}
       </div>
       <div class="pos-grid">
@@ -871,6 +879,14 @@ async function refresh() {
     $("winrate-note").textContent = s.trades
       ? `${s.wins}W / ${s.losses}L` : "no closed trades";
 
+    const advisory = state.verification === "advisory";
+    $("verify").hidden = !advisory;
+    $("verify").title = advisory
+      ? "Contract checks are recorded but do not block trades. A honeypot "
+      + "bought here will appear to sell normally, because the simulator "
+      + "cannot know the real chain would refuse."
+      : "";
+
     $("halt").classList.toggle("on", !!state.halted);
     $("halt-reason").textContent = state.halt_reason || "";
 
@@ -894,9 +910,16 @@ async function refresh() {
     renderFills(state.recent_fills);
     $("fills-note").hidden = state.recent_fills.length === 0;
 
-    $("foot").innerHTML = state.mode === "paper"
-      ? "Paper trading — no real funds are at risk.<br>Every figure is read from the bot's own database."
-      : "LIVE MODE — real funds.<br>Every figure is read from the bot's own database.";
+    $("foot").innerHTML = (state.mode === "paper"
+      ? "Paper trading — no real funds are at risk."
+      : "LIVE MODE — real funds.")
+      + "<br>Every figure is read from the bot's own database."
+      + (advisory
+        ? "<br><br>Verification is advisory: unverified tokens are bought and "
+        + "flagged. A honeypot would appear to sell normally here, so profit "
+        + "on a flagged position is an overestimate rather than a riskier "
+        + "version of the same number."
+        : "");
   } catch (error) {
     $("updated").innerHTML =
       '<span class="dot stale"></span>lost contact with the bot — retrying';

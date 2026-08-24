@@ -143,6 +143,8 @@ class Position:
     realized_usd: float = 0.0
     took_first_profit: bool = False
     initial_quantity: float = 0.0
+    unverified_reasons: tuple[str, ...] = ()
+    """Verification findings this position was opened in spite of."""
     position_id: int | None = None
 
     def __post_init__(self) -> None:
@@ -215,3 +217,7 @@ class EntryDecision:
     snapshot: TokenSnapshot
     score: float
     notes: tuple[str, ...] = ()
+    unverified_reasons: tuple[str, ...] = ()
+    """Verification findings this trade was taken in spite of. Empty when the
+    token passed cleanly. Carried onto the position so results can be split
+    between verified and unverified rather than averaged together."""

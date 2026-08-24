@@ -62,6 +62,10 @@ jobs:
           # cap. Sizing scales whatever edge exists -- in both directions.
           MEMEBOT_PROFILE: aggressive
           MEMEBOT_POLL_SECONDS: "45"
+          # Contract checks record their findings but do not veto. Paper
+          # risks nothing and a bot that never trades teaches nothing; the
+          # loader refuses this combination in live mode.
+          MEMEBOT_VERIFICATION: advisory
           MEMEBOT_DB_PATH: state/trading.sqlite3
           # Cycling every 45 seconds within a run, but runs themselves are
           # roughly hourly, so a position can still go unwatched for a while.

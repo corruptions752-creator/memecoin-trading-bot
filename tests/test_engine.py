@@ -641,3 +641,91 @@ def test_the_same_token_is_rejected_when_the_pool_is_not_declared():
     report = engine.run_cycle(NOW)
     assert report.candidates == 0
     assert "whale" in report.rejections
+
+
+# --- Advisory verification ----------------------------------------------
+
+def _failing_provider():
+    from memecoin_bot.chain import MintState
+    from memecoin_bot.onchain import OnChainAuthorityProvider
+
+    class Rpc:
+        def get_mint_state(self, mint):
+            # Mint authority still live: a real, correct rejection.
+            return MintState(False, True, 10 ** 15, 6, "TokenkegQ")
+        def get_top_holder_pct(self, mint, s, *, ignore=frozenset(),
+                               exclude_amount=0, tolerance=0.02):
+            return 0.04
+
+    class Jup:
+        def can_sell(self, mint, amount, *, max_price_impact_pct=0.15):
+            return True
+
+    return Rpc, Jup, OnChainAuthorityProvider
+
+
+def test_strict_verification_blocks_an_unsafe_token():
+    Rpc, Jup, Provider = _failing_provider()
+    settings = deterministic_settings(
+        min_entry_score=0.01, verification="strict"
+    )
+    token = make_snapshot(mint="MintRisky", symbol="RISKY",
+                          liquidity_usd=500_000.0, pool_base_amount=700_000.0)
+    market = FakeMarket([token], {token.mint: token})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"),
+        Provider(settings, rpc=Rpc(), jupiter=Jup()),
+    )
+    report = engine.run_cycle(NOW)
+    assert report.entered == []
+    assert "mint-authority" in report.rejections
+
+
+def test_advisory_verification_buys_and_flags_it():
+    """Paper risks nothing, so observing the trade beats refusing it -- but
+    the finding must travel with the position, not be discarded."""
+
+    Rpc, Jup, Provider = _failing_provider()
+    settings = deterministic_settings(
+        min_entry_score=0.01, verification="advisory"
+    )
+    token = make_snapshot(mint="MintRisky", symbol="RISKY",
+                          liquidity_usd=500_000.0, pool_base_amount=700_000.0)
+    market = FakeMarket([token], {token.mint: token})
+    store = Store(":memory:")
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), store,
+        Provider(settings, rpc=Rpc(), jupiter=Jup()),
+    )
+    report = engine.run_cycle(NOW)
+
+    assert report.entered == ["RISKY"]
+    assert report.unverified == 1
+    position = engine.positions[0]
+    assert position.unverified_reasons, "the finding must be carried"
+    assert any("mint authority" in r for r in position.unverified_reasons)
+
+
+def test_the_unverified_flag_survives_a_restart(tmp_path):
+    Rpc, Jup, Provider = _failing_provider()
+    path = str(tmp_path / "t.sqlite3")
+    settings = deterministic_settings(
+        min_entry_score=0.01, verification="advisory", database_path=path
+    )
+    token = make_snapshot(mint="MintRisky", symbol="RISKY",
+                          liquidity_usd=500_000.0, pool_base_amount=700_000.0)
+    market = FakeMarket([token], {token.mint: token})
+
+    store = Store(path)
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), store,
+        Provider(settings, rpc=Rpc(), jupiter=Jup()),
+    )
+    engine.run_cycle(NOW)
+    store.close()
+
+    restored = Store(path).load_open_positions()[0]
+    assert restored.unverified_reasons, "flag must survive persistence"

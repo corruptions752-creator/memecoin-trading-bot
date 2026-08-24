@@ -65,6 +65,13 @@ PROFILES = {
     },
 }
 
+# How hard verification bites. Contract checks were rejecting every token
+# that cleared the market screen, so paper trading produced nothing to learn
+# from. Paper risks no money and exists to observe behaviour, so it can run
+# with verification advisory; live cannot, and the loader refuses to let it.
+VERIFY_STRICT = "strict"
+VERIFY_ADVISORY = "advisory"
+
 LP_AUTO = "auto"
 LP_STRICT = "strict"
 LP_SUBSTITUTE = "substitute"
@@ -77,6 +84,17 @@ class Settings:
     """Runtime settings loaded from environment variables."""
 
     # --- Mode -------------------------------------------------------------
+    verification: str = VERIFY_STRICT
+    """``strict`` rejects a token whose contract state cannot be confirmed
+    safe. ``advisory`` records the same findings but lets the trade proceed,
+    which is only permitted in paper mode.
+
+    Read advisory results with the asymmetry in mind: a honeypot bought on
+    paper will appear to sell normally, because the simulator has no way to
+    know the real chain would refuse. Paper profit on an unverified token is
+    therefore an overestimate, not merely a riskier version of the same
+    number."""
+
     profile: str = "conservative"
     """Which risk posture the settings came from, for display."""
 
@@ -341,8 +359,24 @@ def load_settings() -> Settings:
     profile_name = os.getenv("MEMEBOT_PROFILE", "conservative").strip().lower()
     profile = apply_profile(profile_name or "conservative")
 
+    verification = os.getenv(
+        "MEMEBOT_VERIFICATION", VERIFY_STRICT
+    ).strip().lower() or VERIFY_STRICT
+    if verification not in (VERIFY_STRICT, VERIFY_ADVISORY):
+        raise RuntimeError(
+            f"MEMEBOT_VERIFICATION must be '{VERIFY_STRICT}' or "
+            f"'{VERIFY_ADVISORY}'."
+        )
+    if verification == VERIFY_ADVISORY and mode == LIVE:
+        raise RuntimeError(
+            "Refusing to run live with advisory verification. The contract "
+            "checks are what stand between the bot and a honeypot; skipping "
+            "them is defensible only when no funds are at risk."
+        )
+
     settings = Settings(
         mode=mode,
+        verification=verification,
         profile=profile_name or "conservative",
         starting_bankroll_usd=_float(
             "MEMEBOT_BANKROLL_USD", 1_000.0, minimum=1.0

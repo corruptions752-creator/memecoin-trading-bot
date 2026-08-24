@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS positions (
     peak_price_usd      REAL    NOT NULL DEFAULT 0,
     realized_usd        REAL    NOT NULL DEFAULT 0,
     took_first_profit   INTEGER NOT NULL DEFAULT 0,
+    unverified_reasons  TEXT    NOT NULL DEFAULT '[]',
     closed_at           REAL,
     close_reason        TEXT
 );
@@ -144,6 +145,7 @@ class Store:
         ("activity", "rpc_failures", "INTEGER NOT NULL DEFAULT 0"),
         ("activity", "rpc_lookups", "INTEGER NOT NULL DEFAULT 0"),
         ("activity", "near_misses", "TEXT NOT NULL DEFAULT '[]'"),
+        ("positions", "unverified_reasons", "TEXT NOT NULL DEFAULT '[]'"),
     )
 
     def _migrate(self) -> None:
@@ -176,8 +178,8 @@ class Store:
             INSERT INTO positions (
                 mint, symbol, entry_price_usd, quantity, initial_quantity,
                 cost_usd, opened_at, entry_liquidity_usd, peak_price_usd,
-                realized_usd, took_first_profit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                realized_usd, took_first_profit, unverified_reasons
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 position.mint,
@@ -191,6 +193,7 @@ class Store:
                 position.peak_price_usd,
                 position.realized_usd,
                 int(position.took_first_profit),
+                json.dumps(list(position.unverified_reasons)),
             ),
         )
         self._connection.commit()
@@ -542,5 +545,8 @@ class Store:
             realized_usd=row["realized_usd"],
             took_first_profit=bool(row["took_first_profit"]),
             initial_quantity=row["initial_quantity"],
+            unverified_reasons=tuple(
+                _json_column(row, "unverified_reasons", [])
+            ),
             position_id=row["id"],
         )

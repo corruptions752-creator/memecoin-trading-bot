@@ -49,6 +49,7 @@ def build_state(settings: Settings, store: Store) -> dict:
             "peak_price": position.peak_price_usd,
             "took_profit": position.took_first_profit,
             "age_hours": (now - position.opened_at) / 3_600.0,
+            "unverified": list(position.unverified_reasons),
             "stop_price": position.entry_price_usd * (1 - settings.stop_loss_pct),
             "target_price": (
                 position.entry_price_usd * settings.take_profit_multiple
@@ -106,6 +107,7 @@ def build_state(settings: Settings, store: Store) -> dict:
         },
         "lp_policy": resolve_lp_policy(settings),
         "profile": settings.profile,
+        "verification": getattr(settings, "verification", "strict"),
         "risk": {
             "per_trade_pct": settings.risk_fraction_per_trade,
             "stop_pct": settings.stop_loss_pct,

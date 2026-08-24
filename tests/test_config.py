@@ -171,3 +171,32 @@ def test_every_profile_defines_every_key(monkeypatch):
         f"profiles define different keys: "
         f"{[sorted(k ^ keysets[0]) for k in keysets]}"
     )
+
+
+# --- Verification mode ---------------------------------------------------
+
+def test_verification_defaults_to_strict(monkeypatch):
+    monkeypatch.delenv("MEMEBOT_VERIFICATION", raising=False)
+    assert load_settings().verification == "strict"
+
+
+def test_advisory_verification_is_refused_in_live_mode(monkeypatch):
+    """The contract checks are what stand between the bot and a honeypot."""
+
+    monkeypatch.setenv("MEMEBOT_MODE", "live")
+    monkeypatch.setenv("MEMEBOT_I_UNDERSTAND_THE_RISK", "yes")
+    monkeypatch.setenv("MEMEBOT_VERIFICATION", "advisory")
+    with pytest.raises(RuntimeError, match="Refusing to run live"):
+        load_settings()
+
+
+def test_advisory_verification_is_allowed_in_paper_mode(monkeypatch):
+    monkeypatch.setenv("MEMEBOT_MODE", "paper")
+    monkeypatch.setenv("MEMEBOT_VERIFICATION", "advisory")
+    assert load_settings().verification == "advisory"
+
+
+def test_an_unknown_verification_mode_is_rejected(monkeypatch):
+    monkeypatch.setenv("MEMEBOT_VERIFICATION", "loose")
+    with pytest.raises(RuntimeError, match="MEMEBOT_VERIFICATION"):
+        load_settings()

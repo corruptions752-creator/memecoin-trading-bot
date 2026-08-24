@@ -5,7 +5,7 @@ looking for new ones. When the data feed is degraded or the bankroll is under
 pressure, the bot's first duty is to the money already at risk.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import logging
 import time
 
@@ -53,6 +53,8 @@ class CycleReport:
     caused by an unreachable endpoint looks identical to one caused by a
     dangerous token, and they mean opposite things."""
     rpc_lookups: int = 0
+    unverified: int = 0
+    """Bought despite failing verification, under advisory mode."""
     near_misses: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     """Tokens that cleared the market checks and then failed verification,
     with every reason. A bucket count says how many; this says which."""
@@ -207,6 +209,13 @@ class TradingEngine:
                 position.quantity, decision.note,
             )
 
+    def _verification_is_advisory(self) -> bool:
+        """Whether contract findings advise rather than veto."""
+
+        from .config import VERIFY_ADVISORY
+
+        return getattr(self.settings, "verification", "") == VERIFY_ADVISORY
+
     def _fetch_authority(self, snapshot: TokenSnapshot):
         """Ask the provider about a token, passing the pool's own holding.
 
@@ -358,6 +367,23 @@ class TradingEngine:
                 snapshot, self.settings, authority,
                 require_contract_checks=self.enforce_contract_checks,
             )
+
+            # Advisory verification: the findings are still computed and
+            # still recorded against the position, they just do not veto.
+            if not verdict.passed and self._verification_is_advisory():
+                report.unverified += 1
+                entry = replace(entry, unverified_reasons=verdict.failures)
+                if len(report.near_misses) < 5:
+                    report.near_misses.append(
+                        (snapshot.symbol, verdict.failures)
+                    )
+                log.warning(
+                    "ADVISORY: buying %s despite %s", snapshot.symbol,
+                    "; ".join(verdict.failures),
+                )
+                ranked.append(entry)
+                continue
+
             if not verdict.passed:
                 report.rejected += 1
                 self._count_rejection(report, verdict.failures[0])
@@ -417,6 +443,7 @@ class TradingEngine:
             opened_at=at,
             entry_liquidity_usd=snapshot.liquidity_usd,
             peak_price_usd=fill.price_usd,
+            unverified_reasons=entry.unverified_reasons,
         )
         position = self.store.open_position(position)
         self.store.record_fill(fill, position.position_id)
