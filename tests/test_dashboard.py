@@ -278,3 +278,28 @@ def test_the_page_falls_back_to_the_snapshot():
     assert '"state.json"' in page
     assert "staticMode" in page
     assert "snapshot ·" in page
+
+
+def test_the_page_busts_the_cdn_cache():
+    """GitHub Pages caches for minutes; `no-store` only covers the browser's
+    own cache, so a unique URL per request is what actually gets fresh data."""
+
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "function bust(" in page
+    assert "bust(endpoint)" in page
+    assert "Date.now()" in page
+
+
+def test_the_page_refreshes_when_reopened():
+    """Phones suspend timers in background tabs, so returning to the page
+    must fetch rather than show what it held when it was put away."""
+
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "visibilitychange" in page
+    assert "pageshow" in page
