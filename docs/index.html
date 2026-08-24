@@ -64,7 +64,7 @@ body {
 .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 56px; }
 
 /* --- Header --- */
-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 h1 { font-size: 19px; font-weight: 640; letter-spacing: -0.01em; margin: 0; }
 .badge {
   font: 600 10.5px/1 var(--mono); letter-spacing: .09em; text-transform: uppercase;
@@ -72,7 +72,43 @@ h1 { font-size: 19px; font-weight: 640; letter-spacing: -0.01em; margin: 0; }
   color: var(--ink-2); background: var(--surface); white-space: nowrap;
 }
 .badge.paper { color: var(--series-1); border-color: color-mix(in oklab, var(--series-1) 35%, var(--border)); }
-.sub { color: var(--ink-3); font-size: 12.5px; margin: 2px 0 18px; font-variant-numeric: tabular-nums; }
+.sub { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; margin-left: auto; }
+
+/* --- Hero --- */
+.hero {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 18px 16px; margin-bottom: 10px;
+}
+.hero-label {
+  font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 600;
+}
+.hero-value {
+  font: 620 38px/1.05 var(--mono); letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums; margin-top: 8px;
+}
+.hero-change { font: 13px var(--mono); margin-top: 7px; font-variant-numeric: tabular-nums; }
+.hero-meta {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+  padding-top: 13px; border-top: 1px solid var(--border-soft);
+  font-size: 12px; color: var(--ink-2);
+}
+.hero-meta b { color: var(--ink); font-weight: 620; font-variant-numeric: tabular-nums; }
+.hero-meta .sep { color: var(--border); }
+
+/* --- Run progress --- */
+.progress {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 13px 15px; margin-bottom: 14px;
+}
+.progress-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px; font-size: 12px; margin-bottom: 9px;
+}
+.progress-head span:first-child { font-weight: 620; }
+.progress-head span:last-child { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.progress-track { height: 5px; border-radius: 3px; background: var(--border-soft); overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; background: var(--series-1); transition: width .4s; }
 
 /* --- Halt banner --- */
 .halt {
@@ -86,8 +122,16 @@ h1 { font-size: 19px; font-weight: 640; letter-spacing: -0.01em; margin: 0; }
 .halt-body { color: var(--ink-2); font-size: 12.5px; }
 
 /* --- Stat tiles --- */
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-@media (max-width: 640px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.tiles-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 640px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .tiles-3 { grid-template-columns: repeat(3, 1fr); }
+  .tile { padding: 11px 10px; }
+  .tile-value { font-size: 19px; }
+  .tile-label { font-size: 9.5px; }
+  .tile-note { font-size: 10.5px; }
+}
 .tile {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 13px 14px;
@@ -225,15 +269,26 @@ td.num { font-family: var(--mono); }
   <header>
     <h1>Trading Bot</h1>
     <span class="badge paper" id="mode">PAPER</span>
+    <span class="sub" id="updated">connecting…</span>
   </header>
-  <div class="sub" id="updated">connecting…</div>
 
-  <div class="strip" id="strip" hidden>
-    <span>watching <b id="strip-scanned">—</b> tokens</span>
-    <span class="sep">·</span>
-    <span>next check <b id="strip-next">—</b></span>
-    <span class="sep">·</span>
-    <span><b id="strip-trades">0</b> trades so far</span>
+  <div class="hero">
+    <div class="hero-label">Equity</div>
+    <div class="hero-value" id="equity">—</div>
+    <div class="hero-change" id="equity-note"></div>
+    <div class="hero-meta" id="strip" hidden>
+      <span>watching <b id="strip-scanned">—</b> tokens</span>
+      <span class="sep">·</span>
+      <span>next check <b id="strip-next">—</b></span>
+    </div>
+  </div>
+
+  <div class="progress" id="progress" hidden>
+    <div class="progress-head">
+      <span id="progress-day">Day 1 of 21</span>
+      <span id="progress-detail"></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
   </div>
 
   <div class="halt" id="halt">
@@ -244,12 +299,7 @@ td.num { font-family: var(--mono); }
     </div>
   </div>
 
-  <div class="tiles">
-    <div class="tile">
-      <div class="tile-label">Equity</div>
-      <div class="tile-value" id="equity">—</div>
-      <div class="tile-note" id="equity-note"></div>
-    </div>
+  <div class="tiles tiles-3">
     <div class="tile">
       <div class="tile-label">Today</div>
       <div class="tile-value" id="today">—</div>
@@ -549,13 +599,31 @@ function renderStrip(state) {
   strip.hidden = false;
 
   $("strip-scanned").textContent = a.scanned.toLocaleString();
-  $("strip-trades").textContent = state.stats.trades;
 
   const since = Date.now() / 1000 - (state.generated_at || 0);
   const remaining = CYCLE_SECONDS - (since % CYCLE_SECONDS);
   $("strip-next").textContent = since > CYCLE_SECONDS * 2
     ? "overdue"
     : "~" + Math.max(1, Math.round(remaining / 60)) + "m";
+}
+
+// The paper run is a three-week experiment. Most cycles do nothing, so
+// showing accumulated progress is what separates "working" from "stuck".
+const RUN_DAYS = 21;
+
+function renderProgress(state) {
+  const run = state.run;
+  const host = $("progress");
+  if (!run || !run.cycles) { host.hidden = true; return; }
+  host.hidden = false;
+
+  const day = Math.min(RUN_DAYS, Math.floor(run.days) + 1);
+  $("progress-day").textContent = `Day ${day} of ${RUN_DAYS}`;
+  $("progress-detail").textContent =
+    `${run.cycles.toLocaleString()} cycles · ` +
+    `${run.tokens_seen.toLocaleString()} tokens examined`;
+  $("progress-fill").style.width =
+    Math.min(100, (run.days / RUN_DAYS) * 100).toFixed(1) + "%";
 }
 
 function drawSpark(history) {
@@ -692,8 +760,13 @@ async function refresh() {
     const change = equity - state.starting_bankroll;
 
     $("equity").textContent = money(equity);
-    signed($("equity-note"), change, v => money(v) +
-      ` (${change >= 0 ? "+" : ""}${pct(change / state.starting_bankroll)})`);
+    if (change === 0) {
+      $("equity-note").textContent = "unchanged · nothing traded yet";
+      $("equity-note").classList.remove("pos", "neg");
+    } else {
+      signed($("equity-note"), change, v => money(v) +
+        ` (${change >= 0 ? "+" : ""}${pct(change / state.starting_bankroll)})`);
+    }
 
     signed($("today"), state.realized_today);
     $("today-note").textContent =
@@ -718,6 +791,7 @@ async function refresh() {
       ? `expectancy ${money(s.expectancy_usd)}/trade` : "";
 
     renderStrip(state);
+    renderProgress(state);
     renderScan(state.activity, state.positions, state.max_positions);
     drawSpark(state.scan_history);
     // An empty plot is a large block of nothing; show it once there is a
