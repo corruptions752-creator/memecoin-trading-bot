@@ -370,3 +370,59 @@ def test_empty_states_explain_rather_than_look_broken():
     assert "Nothing held right now" in page
     assert "No completed trades yet" in page
     assert "No orders placed yet" in page
+
+
+# --- Run progress --------------------------------------------------------
+
+def test_run_progress_is_reported(tmp_path):
+    """Over a three-week test most cycles do nothing, so accumulated
+    progress is what separates 'working' from 'stuck'."""
+
+    settings, store = traded(tmp_path)
+    for i in range(10):
+        store.save_activity(
+            at=NOW + i * 900, scanned=200, rejected=200, candidates=0,
+            entered=0, rejections={}, shortlisted=1,
+        )
+    run = build_state(settings, store)["run"]
+    assert run["cycles"] >= 10
+    assert run["tokens_seen"] >= 2_000
+    assert run["started_at"] is not None
+
+
+def test_a_fresh_database_reports_no_progress(tmp_path):
+    settings = deterministic_settings(
+        database_path=str(tmp_path / "empty.sqlite3")
+    )
+    run = build_state(settings, Store(settings.database_path))["run"]
+    assert run["cycles"] == 0
+    assert run["started_at"] is None
+
+
+def test_the_page_renders_the_run_progress():
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "renderProgress" in page
+    assert "RUN_DAYS" in page
+
+
+def test_the_funnel_shows_the_shortlist_step():
+    """Seen -> shortlist -> verified -> bought localises where candidates
+    are lost, which one number could not."""
+
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    for label in ("seen", "shortlist", "verified", "bought"):
+        assert f'"{label}"' in page
+
+
+def test_an_unchanged_equity_says_so_plainly():
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "nothing traded yet" in page

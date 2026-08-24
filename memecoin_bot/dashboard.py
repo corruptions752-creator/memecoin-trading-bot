@@ -57,6 +57,12 @@ def build_state(settings: Settings, store: Store) -> dict:
 
     performance = summarize(store, settings.starting_bankroll_usd)
 
+    # How far into the run we are. Over a multi-week paper test, most cycles
+    # do nothing, so a sense of accumulated progress is the difference
+    # between "working" and "stuck".
+    first = store.first_activity_at()
+    cycles, tokens_seen = store.activity_totals()
+
     # Equity curve: starting capital plus cumulative realized P&L, in close
     # order. This is the same series the drawdown figure is measured on.
     equity, running = [settings.starting_bankroll_usd], settings.starting_bankroll_usd
@@ -92,6 +98,12 @@ def build_state(settings: Settings, store: Store) -> dict:
         "mode": settings.mode,
         "activity": activity,
         "scan_history": history,
+        "run": {
+            "started_at": first,
+            "days": (now - first) / 86_400.0 if first else 0.0,
+            "cycles": cycles,
+            "tokens_seen": tokens_seen,
+        },
         "lp_policy": resolve_lp_policy(settings),
         "generated_at": now,
         "bankroll": risk["cash_usd"] + risk["open_cost_usd"],

@@ -309,6 +309,28 @@ class Store:
             for r in reversed(rows)
         ]
 
+    def first_activity_at(self) -> float | None:
+        """When the first recorded scan happened, or ``None``.
+
+        The history is capped, so this is the start of the retained window
+        rather than of all time -- close enough to date a run, and it never
+        pretends to more precision than it has.
+        """
+
+        row = self._connection.execute(
+            "SELECT MIN(at) AS first FROM activity_history"
+        ).fetchone()
+        return row["first"] if row and row["first"] else None
+
+    def activity_totals(self) -> tuple[int, int]:
+        """Retained cycle count and total tokens seen across them."""
+
+        row = self._connection.execute(
+            "SELECT COUNT(*) AS cycles, COALESCE(SUM(scanned), 0) AS seen "
+            "FROM activity_history"
+        ).fetchone()
+        return (int(row["cycles"]), int(row["seen"])) if row else (0, 0)
+
     def load_activity(self) -> dict | None:
         """The most recent scan, or ``None`` before the first one."""
 
