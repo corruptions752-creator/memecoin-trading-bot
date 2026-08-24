@@ -3,312 +3,288 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Trading Bot</title>
+<title>Memecoin Terminal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%233987e5'/%3E%3Cpath d='M8 21l5-6 4 4 7-9' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
-/* Palette roles stay semantic: one categorical hue for the data series, the
-   reserved status pair for gain and loss. What changed is the ground and the
-   chrome -- deeper surfaces, luminous numerals, monospace throughout, so it
-   reads as an instrument rather than a form. */
+/* A trading terminal, not a form.
+   Data marks keep the validated palette -- one categorical hue for the
+   series, the fixed status pair for gain and loss, dark steps chosen for a
+   dark surface. Everything decorative (grid, glow, gradients, brackets)
+   encodes nothing, so it is free to be as loud as it likes. */
 :root {
   color-scheme: light;
-  --bg:          #f4f4f2;
-  --bg-glow:     #2a78d60f;
-  --surface:     #fcfcfb;
-  --surface-2:   #f7f7f4;
-  --line:        #e2e1dc;
-  --line-soft:   #ededea;
-  --ink:         #0b0b0b;
-  --ink-2:       #4e4d4a;
-  --ink-3:       #8b8a83;
-  --accent:      #2a78d6;
-  --accent-dim:  #2a78d61f;
-  --accent-glow: #2a78d633;
-  --good:        #0ca30c;
-  --bad:         #d03b3b;
-  --warn:        #fab219;
-  --good-dim:    #0ca30c16;
-  --bad-dim:     #d03b3b16;
-  --r:  16px;
-  --r2: 11px;
+  --void:      #f2f2f0;
+  --panel:     #ffffff;
+  --panel-2:   #f7f7f5;
+  --edge:      #e2e1dc;
+  --edge-soft: #eeedea;
+  --ink:       #08080a;
+  --ink-2:     #4a4a48;
+  --ink-3:     #8e8d87;
+  --neon:      #2a78d6;
+  --neon-2:    #7c3aed;
+  --neon-3:    #0891b2;
+  --up:        #0ca30c;
+  --down:      #d03b3b;
+  --warn:      #b45309;
+  --neon-wash: #2a78d614;
+  --up-wash:   #0ca30c14;
+  --down-wash: #d03b3b14;
+  --grid:      #0000000a;
+  --glow:      transparent;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --r: 4px;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --bg:          #08080a;
-    --bg-glow:     #3987e51a;
-    --surface:     #121215;
-    --surface-2:   #17171b;
-    --line:        #232329;
-    --line-soft:   #1c1c21;
-    --ink:         #f4f4f6;
-    --ink-2:       #a9a9b4;
-    --ink-3:       #6e6e7a;
-    --accent:      #4d94ff;
-    --accent-dim:  #4d94ff1f;
-    --accent-glow: #4d94ff4d;
-    --good:        #22c55e;
-    --bad:         #f05252;
-    --good-dim:    #22c55e1c;
-    --bad-dim:     #f052521c;
+    --void:      #0a0a0f;
+    --panel:     #101018;
+    --panel-2:   #14141d;
+    --edge:      #23232f;
+    --edge-soft: #1a1a24;
+    --ink:       #eef0f6;
+    --ink-2:     #9fa2b4;
+    --ink-3:     #62657a;
+    --neon:      #3987e5;
+    --neon-2:    #a78bfa;
+    --neon-3:    #22d3ee;
+    --up:        #0ca30c;
+    --down:      #d03b3b;
+    --warn:      #fab219;
+    --neon-wash: #3987e51f;
+    --up-wash:   #0ca30c24;
+    --down-wash: #d03b3b24;
+    --grid:      #ffffff0a;
+    --glow:      #3987e526;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg:#08080a; --bg-glow:#3987e51a; --surface:#121215; --surface-2:#17171b;
-  --line:#232329; --line-soft:#1c1c21; --ink:#f4f4f6; --ink-2:#a9a9b4;
-  --ink-3:#6e6e7a; --accent:#4d94ff; --accent-dim:#4d94ff1f;
-  --accent-glow:#4d94ff4d; --good:#22c55e; --bad:#f05252;
-  --good-dim:#22c55e1c; --bad-dim:#f052521c;
+  --void:#0a0a0f; --panel:#101018; --panel-2:#14141d; --edge:#23232f;
+  --edge-soft:#1a1a24; --ink:#eef0f6; --ink-2:#9fa2b4; --ink-3:#62657a;
+  --neon:#3987e5; --neon-2:#a78bfa; --neon-3:#22d3ee; --up:#0ca30c;
+  --down:#d03b3b; --warn:#fab219; --neon-wash:#3987e51f; --up-wash:#0ca30c24;
+  --down-wash:#d03b3b24; --grid:#ffffff0a; --glow:#3987e526;
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0;
-  background: var(--bg);
-  background-image:
-    radial-gradient(900px 420px at 50% -8%, var(--bg-glow), transparent 70%);
-  background-attachment: fixed;
-  color: var(--ink);
-  font: 15px/1.5 var(--mono);
+  margin: 0; color: var(--ink); background: var(--void);
+  font: 14px/1.45 var(--mono);
   -webkit-font-smoothing: antialiased;
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    radial-gradient(1100px 460px at 50% -10%, var(--glow), transparent 72%);
+  background-size: 46px 46px, 46px 46px, 100% 100%;
+  background-attachment: fixed;
 }
-.wrap { max-width: 880px; margin: 0 auto; padding: 18px 14px 60px; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 14px 12px 60px; }
 
-/* --- Header --- */
-header {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
-  flex-wrap: wrap;
+/* --- Panels with HUD corner brackets --- */
+.panel {
+  position: relative; background: var(--panel);
+  border: 1px solid var(--edge); border-radius: var(--r);
+  padding: 14px 15px; margin-bottom: 9px;
 }
-h1 {
-  font-size: 14px; font-weight: 700; letter-spacing: .16em;
-  text-transform: uppercase; margin: 0; color: var(--ink);
-  white-space: nowrap;
+.panel::before, .panel::after {
+  content: ""; position: absolute; width: 9px; height: 9px;
+  border: 1px solid var(--neon); opacity: .5; pointer-events: none;
 }
-.badge {
-  font: 700 9px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
-  padding: 5px 7px; border-radius: 5px; color: var(--accent);
-  background: var(--accent-dim);
-  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
-}
-.badge.risk { color: var(--warn); background: #fab2191f;
-  border-color: color-mix(in oklab, var(--warn) 32%, transparent); }
-.badge.warn { color: var(--bad); background: var(--bad-dim);
-  border-color: color-mix(in oklab, var(--bad) 38%, transparent); }
-.sub {
-  margin-left: auto; font-size: 10.5px; color: var(--ink-3);
-  display: flex; align-items: center; gap: 6px; white-space: nowrap;
-}
-@media (max-width: 430px) {
-  h1 { font-size: 12.5px; letter-spacing: .12em; }
-  .badge { padding: 4px 6px; font-size: 8.5px; letter-spacing: .1em; }
-  /* Below this width the timestamp cannot share the row without breaking
-     the title, so it takes its own line. */
-  .sub { margin-left: 0; width: 100%; order: 3; }
-}
-.dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--good);
-  box-shadow: 0 0 0 3px var(--good-dim); animation: pulse 2.4s ease-in-out infinite;
-}
-.dot.stale { background: var(--warn); box-shadow: 0 0 0 3px #fab2191f; }
-@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
-@media (prefers-reduced-motion: reduce) { .dot { animation: none } }
+.panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.panel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
 
-/* --- Cards --- */
-.card, .hero, .progress {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  margin-bottom: 11px;
-}
-.card { padding: 15px 16px; }
-.card-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px; margin-bottom: 13px;
-}
-.card-title {
-  font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--ink-2);
-}
-.card-meta { font-size: 11px; color: var(--ink-3); }
-
-/* --- Hero --- */
-.hero { padding: 22px 20px 18px; position: relative; overflow: hidden; }
-.hero::before {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(340px 150px at 12% 0%, var(--accent-dim), transparent 72%);
-  pointer-events: none;
-}
-.hero > * { position: relative; }
-.hero-label {
-  font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
+.label {
+  font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
   color: var(--ink-3); font-weight: 700;
 }
-.hero-value {
-  font: 700 42px/1 var(--mono); letter-spacing: -0.04em; margin-top: 10px;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 28px var(--accent-glow);
+
+/* --- Header --- */
+header { display: flex; align-items: center; gap: 7px; padding: 4px 2px 12px; flex-wrap: wrap; }
+.mark {
+  width: 20px; height: 20px; border-radius: 3px; flex: none;
+  background: linear-gradient(135deg, var(--neon), var(--neon-2) 55%, var(--neon-3));
+  box-shadow: 0 0 14px var(--glow);
 }
-.hero-change { font-size: 12.5px; margin-top: 9px; color: var(--ink-2); }
+h1 {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .26em;
+  text-transform: uppercase; margin: 0; white-space: nowrap;
+}
+.tag {
+  font: 700 8px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+  padding: 4px 6px; border-radius: 3px; border: 1px solid;
+  color: var(--neon); border-color: color-mix(in oklab, var(--neon) 40%, transparent);
+  background: var(--neon-wash);
+}
+.tag.risk { color: var(--warn); background: #fab2191a;
+  border-color: color-mix(in oklab, var(--warn) 40%, transparent); }
+.tag.alert { color: var(--down); background: var(--down-wash);
+  border-color: color-mix(in oklab, var(--down) 46%, transparent); }
+.status { margin-left: auto; display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--ink-3); white-space: nowrap; }
+.led { width: 5px; height: 5px; border-radius: 50%; background: var(--up);
+  box-shadow: 0 0 8px var(--up); animation: blink 2.2s ease-in-out infinite; }
+.led.stale { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+@media (prefers-reduced-motion: reduce) { .led { animation: none } }
+
+/* --- Ticker --- */
+.ticker {
+  overflow: hidden; border-top: 1px solid var(--edge-soft);
+  border-bottom: 1px solid var(--edge-soft); background: var(--panel);
+  margin-bottom: 9px; height: 26px; position: relative;
+}
+.ticker-track { display: flex; gap: 22px; align-items: center; height: 100%;
+  white-space: nowrap; padding-left: 12px; animation: slide 42s linear infinite; }
+@keyframes slide { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@media (prefers-reduced-motion: reduce) { .ticker-track { animation: none } }
+.tick { font-size: 10.5px; color: var(--ink-3); }
+.tick b { color: var(--ink-2); font-weight: 700; }
+
+/* --- Hero --- */
+.hero { padding: 18px 16px 15px; overflow: hidden; }
+.hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.hero-value {
+  font: 700 40px/0.95 var(--mono); letter-spacing: -.045em;
+  font-variant-numeric: tabular-nums; margin-top: 9px;
+  text-shadow: 0 0 30px var(--glow);
+}
+.hero-delta { font-size: 12px; margin-top: 8px; }
+.hero-side { text-align: right; }
+.hero-side-v { font: 700 17px/1 var(--mono); font-variant-numeric: tabular-nums; margin-top: 7px; }
 .hero-meta {
-  display: flex; gap: 7px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px;
-  border-top: 1px solid var(--line-soft); font-size: 11px; color: var(--ink-3);
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 15px; padding-top: 12px;
+  border-top: 1px solid var(--edge-soft); font-size: 10.5px; color: var(--ink-3);
 }
 .hero-meta b { color: var(--ink-2); font-weight: 700; }
-.hero-meta .sep { color: var(--line); }
+.hero-meta .sep { color: var(--edge); }
+.up { color: var(--up); }
+.down { color: var(--down); }
 
 /* --- Progress --- */
-.progress { padding: 13px 16px; }
-.progress-head {
-  display: flex; justify-content: space-between; gap: 10px;
-  font-size: 10.5px; margin-bottom: 10px; letter-spacing: .04em;
-}
-.progress-head span:first-child { font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
-.progress-head span:last-child { color: var(--ink-3); }
-.progress-track {
-  height: 4px; border-radius: 2px; background: var(--line-soft); overflow: hidden;
-}
-.progress-fill {
-  height: 100%; border-radius: 2px; transition: width .5s ease;
-  background: linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 62%, white));
-  box-shadow: 0 0 12px var(--accent-glow);
-}
+.bar { height: 3px; background: var(--edge-soft); border-radius: 2px; overflow: hidden; margin-top: 9px; }
+.bar-fill { height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--neon), var(--neon-2));
+  box-shadow: 0 0 10px var(--glow); transition: width .5s ease; }
+.bar-head { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; }
 
-/* --- Tiles --- */
-.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 11px; }
-.tile {
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r2); padding: 13px 12px;
-}
-.tile-label {
-  font-size: 9px; letter-spacing: .13em; text-transform: uppercase;
-  color: var(--ink-3); font-weight: 700; margin-bottom: 8px;
-}
-.tile-value { font: 700 21px/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.tile-note { font-size: 10px; color: var(--ink-3); margin-top: 6px; }
-.pos { color: var(--good); }
-.neg { color: var(--bad); }
+/* --- Stat strip --- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 9px; }
+.stat { background: var(--panel); border: 1px solid var(--edge);
+  border-radius: var(--r); padding: 11px 11px; }
+.stat-v { font: 700 19px/1 var(--mono); font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em; margin-top: 7px; }
+.stat-n { font-size: 9.5px; color: var(--ink-3); margin-top: 5px; }
 
-/* --- Funnel --- */
-.funnel { display: flex; align-items: stretch; gap: 5px; margin-bottom: 13px; }
-.step {
-  flex: 1; min-width: 0; text-align: center; padding: 11px 2px;
-  border-radius: var(--r2); background: var(--surface-2);
-  border: 1px solid var(--line-soft);
-}
-.step-n { font: 700 18px/1 var(--mono); font-variant-numeric: tabular-nums; }
-.step-l {
-  font-size: 8px; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--ink-3); font-weight: 700; margin-top: 5px;
-}
-.step.hit {
-  background: var(--accent-dim);
-  border-color: color-mix(in oklab, var(--accent) 34%, transparent);
-}
-.step.hit .step-n { color: var(--accent); text-shadow: 0 0 16px var(--accent-glow); }
+/* --- Pipeline --- */
+.pipe { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+.node { flex: 1; min-width: 0; text-align: center; padding: 10px 2px;
+  border: 1px solid var(--edge-soft); border-radius: var(--r); background: var(--panel-2); }
+.node-v { font: 700 17px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.node-l { font-size: 7.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 700; margin-top: 5px; }
+.node.live { border-color: color-mix(in oklab, var(--neon) 45%, transparent);
+  background: var(--neon-wash); }
+.node.live .node-v { color: var(--neon); text-shadow: 0 0 14px var(--glow); }
+.arrow { color: var(--edge); font-size: 10px; flex: none; }
 
-.why { display: flex; flex-wrap: wrap; gap: 5px; }
-.chip {
-  font: 10.5px var(--mono); padding: 5px 8px; border-radius: 6px;
-  background: var(--surface-2); border: 1px solid var(--line-soft);
-  color: var(--ink-3); font-variant-numeric: tabular-nums;
-}
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 10px; padding: 4px 7px; border-radius: 3px;
+  background: var(--panel-2); border: 1px solid var(--edge-soft);
+  color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .chip b { color: var(--ink-2); font-weight: 700; }
-.note { font-size: 11px; color: var(--ink-3); margin-top: 11px; line-height: 1.55; }
+.note { font-size: 10.5px; color: var(--ink-3); margin-top: 10px; line-height: 1.55; }
 
-/* --- Near misses --- */
-.misses { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line-soft); }
-.misses-title {
-  font-size: 9px; letter-spacing: .11em; text-transform: uppercase;
-  color: var(--ink-3); font-weight: 700; margin-bottom: 10px; line-height: 1.5;
+/* --- Token rows (DEX style) --- */
+.row {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+  padding: 11px 11px; border: 1px solid var(--edge-soft); border-radius: var(--r);
+  background: var(--panel-2); margin-bottom: 6px;
 }
-.miss { margin-bottom: 10px; }
-.miss:last-child { margin-bottom: 0; }
-.miss-sym { font: 700 12px var(--mono); color: var(--ink-2); }
-.miss-reasons { margin: 5px 0 0; padding-left: 15px; }
-.miss-reasons li { font-size: 10.5px; color: var(--ink-3); line-height: 1.5; }
-.spark-caption { font-size: 9.5px; color: var(--ink-3); margin-top: 13px; letter-spacing: .05em; }
-.spark { width: 100%; height: 32px; display: block; margin-top: 5px; }
-.spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5;
-  stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 5px var(--accent-glow)); }
-.spark-dot { fill: var(--accent); }
+.row:last-child { margin-bottom: 0; }
+.row-main { min-width: 0; }
+.row-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.sym { font: 700 13px var(--mono); letter-spacing: .02em; }
+.pill { font: 700 7.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  padding: 4px 5px; border-radius: 3px; }
+.pill.warn { background: #fab2191a; color: var(--warn); }
+.pill.ok { background: var(--up-wash); color: var(--up); }
+.row-sub { font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.row-val { text-align: right; font-variant-numeric: tabular-nums; }
+.row-val-v { font: 700 14px var(--mono); }
+.row-val-n { font-size: 9.5px; color: var(--ink-3); margin-top: 4px; }
+.track { height: 3px; background: var(--edge-soft); border-radius: 2px;
+  position: relative; margin-top: 9px; grid-column: 1 / -1; }
+.track-fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px;
+  background: var(--neon); box-shadow: 0 0 8px var(--glow); }
+.track-mark { position: absolute; top: -3px; width: 2px; height: 9px;
+  border-radius: 1px; background: var(--ink-3); }
 
 /* --- Chart --- */
-.chart { position: relative; width: 100%; }
-.chart svg { display: block; width: 100%; height: 150px; overflow: visible; }
-.gridline { stroke: var(--line-soft); stroke-width: 1; }
-.axis-label { fill: var(--ink-3); font: 9.5px var(--mono); }
-.equity-line { fill: none; stroke: var(--accent); stroke-width: 2;
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: 138px; overflow: visible; }
+.gridline { stroke: var(--edge-soft); stroke-width: 1; }
+.axis-label { fill: var(--ink-3); font: 9px var(--mono); }
+.equity-line { fill: none; stroke: var(--neon); stroke-width: 2;
   stroke-linejoin: round; stroke-linecap: round;
-  filter: drop-shadow(0 0 7px var(--accent-glow)); }
-.equity-area { fill: var(--accent-dim); }
-.baseline { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 4; opacity: .5; }
-.hover-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
-.tooltip {
-  position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%,-125%);
-  background: var(--ink); color: var(--bg); font: 700 11px var(--mono);
-  padding: 6px 9px; border-radius: 7px; white-space: nowrap; transition: opacity .12s;
-  font-variant-numeric: tabular-nums; z-index: 3;
-}
+  filter: drop-shadow(0 0 6px var(--glow)); }
+.equity-area { fill: var(--neon-wash); }
+.baseline { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 4; opacity: .45; }
+.hover-dot { fill: var(--neon); stroke: var(--panel); stroke-width: 2; }
+.tooltip { position: absolute; pointer-events: none; opacity: 0;
+  transform: translate(-50%,-125%); background: var(--ink); color: var(--void);
+  font: 700 10.5px var(--mono); padding: 5px 8px; border-radius: 3px;
+  white-space: nowrap; transition: opacity .12s; font-variant-numeric: tabular-nums; z-index: 3; }
 .tooltip.on { opacity: 1; }
-
-/* --- Positions --- */
-.position { border: 1px solid var(--line-soft); border-radius: var(--r2);
-  padding: 13px; margin-bottom: 8px; background: var(--surface-2); }
-.position:last-child { margin-bottom: 0; }
-.pos-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
-.pos-sym { font: 700 14px var(--mono); letter-spacing: .02em; }
-.pos-tag { font: 700 8.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
-  padding: 5px 7px; border-radius: 5px; background: var(--good-dim); color: var(--good); }
-.pos-tag.unverified { background: #fab2191f; color: var(--warn); }
-.pos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
-.pos-cell-label { font-size: 8.5px; color: var(--ink-3); text-transform: uppercase;
-  letter-spacing: .1em; font-weight: 700; }
-.pos-cell-value { font-size: 12.5px; font-variant-numeric: tabular-nums; margin-top: 4px; }
-.ladder { margin-top: 12px; }
-.ladder-track { position: relative; height: 4px; border-radius: 2px; background: var(--line-soft); }
-.ladder-fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px;
-  background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
-.ladder-mark { position: absolute; top: -4px; width: 2px; height: 12px; border-radius: 1px; }
-.ladder-legend { display: flex; justify-content: space-between; margin-top: 8px;
-  font-size: 9.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.spark { width: 100%; height: 28px; display: block; margin-top: 5px; }
+.spark-line { fill: none; stroke: var(--neon); stroke-width: 1.5;
+  stroke-linejoin: round; filter: drop-shadow(0 0 4px var(--glow)); }
+.spark-dot { fill: var(--neon); }
+.spark-caption { font-size: 9px; color: var(--ink-3); margin-top: 12px; letter-spacing: .06em; }
 
 /* --- Tables --- */
 .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th { text-align: left; font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ink-3); font-weight: 700; padding: 0 12px 9px 0; white-space: nowrap; }
-td { padding: 9px 12px 9px 0; border-top: 1px solid var(--line-soft);
+table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+th { text-align: left; font-size: 8px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 700; padding: 0 11px 8px 0; white-space: nowrap; }
+td { padding: 8px 11px 8px 0; border-top: 1px solid var(--edge-soft);
   white-space: nowrap; font-variant-numeric: tabular-nums; }
-.reason { color: var(--ink-3); font-size: 11px; }
-.side { font: 700 8.5px/1 var(--mono); letter-spacing: .1em; padding: 5px 7px; border-radius: 5px; }
-.side.buy { background: var(--accent-dim); color: var(--accent); }
-.side.sell { background: var(--surface-2); color: var(--ink-3); border: 1px solid var(--line-soft); }
+.muted { color: var(--ink-3); font-size: 10.5px; }
+.side { font: 700 7.5px/1 var(--mono); letter-spacing: .12em; padding: 4px 6px; border-radius: 3px; }
+.side.buy { background: var(--neon-wash); color: var(--neon); }
+.side.sell { background: var(--panel-2); color: var(--ink-3); border: 1px solid var(--edge-soft); }
 
-/* --- Empty & halt --- */
-.empty { color: var(--ink-3); font-size: 12px; padding: 18px 0; text-align: center; }
-.empty-rich { padding: 26px 14px; text-align: center; }
-.empty-title { font-size: 12.5px; font-weight: 700; color: var(--ink-2);
-  letter-spacing: .04em; }
-.empty-body { font-size: 11px; color: var(--ink-3); margin-top: 8px; line-height: 1.6; }
-.halt { display: none; gap: 11px; align-items: flex-start; background: var(--bad-dim);
-  border: 1px solid color-mix(in oklab, var(--bad) 42%, transparent);
-  border-radius: var(--r); padding: 13px 15px; margin-bottom: 11px; }
+/* --- Empty / halt / misses --- */
+.empty { padding: 24px 12px; text-align: center; }
+.empty-t { font-size: 11.5px; font-weight: 700; color: var(--ink-2); letter-spacing: .06em; }
+.empty-b { font-size: 10.5px; color: var(--ink-3); margin-top: 7px; line-height: 1.6; }
+.halt { display: none; gap: 10px; align-items: flex-start; background: var(--down-wash);
+  border: 1px solid color-mix(in oklab, var(--down) 46%, transparent);
+  border-radius: var(--r); padding: 12px 14px; margin-bottom: 9px; }
 .halt.on { display: flex; }
-.halt-icon { color: var(--bad); font-weight: 700; }
-.halt-title { font-weight: 700; font-size: 12.5px; letter-spacing: .03em; }
-.halt-body { color: var(--ink-2); font-size: 11px; margin-top: 3px; }
-
-.foot { color: var(--ink-3); font-size: 10.5px; text-align: center;
-  margin-top: 26px; line-height: 1.7; letter-spacing: .03em; }
+.halt-i { color: var(--down); font-weight: 700; }
+.halt-t { font-weight: 700; font-size: 12px; letter-spacing: .04em; }
+.halt-b { color: var(--ink-2); font-size: 10.5px; margin-top: 3px; }
+.misses { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--edge-soft); }
+.misses-t { font-size: 8.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 700; margin-bottom: 9px; line-height: 1.5; }
+.miss { margin-bottom: 9px; }
+.miss-s { font: 700 11.5px var(--mono); color: var(--ink-2); }
+.miss-r { margin: 4px 0 0; padding-left: 14px; }
+.miss-r li { font-size: 10px; color: var(--ink-3); line-height: 1.5; }
+.foot { color: var(--ink-3); font-size: 9.5px; text-align: center;
+  margin-top: 24px; line-height: 1.8; letter-spacing: .05em; }
 
 @media (max-width: 640px) {
-  .hero-value { font-size: 36px; }
-  .pos-grid { grid-template-columns: repeat(2, 1fr); }
-  .step { padding: 10px 1px; }
-  .step-n { font-size: 16px; }
+  .hero-value { font-size: 33px; }
+  .node { padding: 9px 1px; }
+  .node-v { font-size: 15px; }
+  .arrow { display: none; }
+  .stats { gap: 6px; }
+  .stat-v { font-size: 17px; }
 }
 </style>
 </head>
@@ -316,113 +292,124 @@ td { padding: 9px 12px 9px 0; border-top: 1px solid var(--line-soft);
 <div class="wrap">
 
   <header>
-    <h1>Trading Bot</h1>
-    <span class="badge" id="mode">PAPER</span>
-    <span class="badge risk" id="profile" hidden>—</span>
-    <span class="badge warn" id="verify" hidden>ADVISORY</span>
-    <span class="sub" id="updated">connecting…</span>
+    <span class="mark"></span>
+    <h1>Memecoin Terminal</h1>
+    <span class="tag" id="mode">PAPER</span>
+    <span class="tag risk" id="profile" hidden>—</span>
+    <span class="tag alert" id="verify" hidden>ADVISORY</span>
+    <span class="status"><span class="led" id="led"></span><span id="updated">connecting…</span></span>
   </header>
 
-  <div class="hero">
-    <div class="hero-label">Equity</div>
-    <div class="hero-value" id="equity">—</div>
-    <div class="hero-change" id="equity-note"></div>
+  <div class="ticker" id="ticker" hidden>
+    <div class="ticker-track" id="ticker-track"></div>
+  </div>
+
+  <div class="halt" id="halt">
+    <span class="halt-i">■</span>
+    <div>
+      <div class="halt-t">TRADING HALTED — DAILY LOSS LIMIT</div>
+      <div class="halt-b" id="halt-reason"></div>
+    </div>
+  </div>
+
+  <div class="panel hero">
+    <div class="hero-row">
+      <div>
+        <div class="label">Portfolio Value</div>
+        <div class="hero-value" id="equity">—</div>
+        <div class="hero-delta" id="equity-note"></div>
+      </div>
+      <div class="hero-side">
+        <div class="label">Today</div>
+        <div class="hero-side-v" id="today">—</div>
+        <div class="stat-n" id="today-note"></div>
+      </div>
+    </div>
     <div class="hero-meta" id="strip" hidden>
-      <span>watching <b id="strip-scanned">—</b> tokens</span>
-      <span class="sep">·</span>
-      <span>next check <b id="strip-next">—</b></span>
-      <span class="sep">·</span>
+      <span>scanning <b id="strip-scanned">—</b></span>
+      <span class="sep">/</span>
+      <span>next <b id="strip-next">—</b></span>
+      <span class="sep">/</span>
       <span><b id="strip-risk">—</b> per trade</span>
     </div>
   </div>
 
-  <div class="progress" id="progress" hidden>
-    <div class="progress-head">
-      <span id="progress-day">Day 1 of 21</span>
-      <span id="progress-detail"></span>
+  <div class="panel" id="progress" hidden>
+    <div class="bar-head">
+      <span class="label" id="progress-day">DAY 1 / 21</span>
+      <span class="muted" id="progress-detail"></span>
     </div>
-    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="bar"><div class="bar-fill" id="progress-fill"></div></div>
   </div>
 
-  <div class="halt" id="halt">
-    <span class="halt-icon">■</span>
-    <div>
-      <div class="halt-title">Trading halted — daily loss limit</div>
-      <div class="halt-body" id="halt-reason"></div>
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Slots</div>
+      <div class="stat-v" id="open">—</div>
+      <div class="stat-n" id="open-note"></div>
     </div>
-  </div>
-
-  <div class="tiles tiles-3">
-    <div class="tile">
-      <div class="tile-label">Today</div>
-      <div class="tile-value" id="today">—</div>
-      <div class="tile-note" id="today-note"></div>
+    <div class="stat">
+      <div class="label">Win Rate</div>
+      <div class="stat-v" id="winrate">—</div>
+      <div class="stat-n" id="winrate-note"></div>
     </div>
-    <div class="tile">
-      <div class="tile-label">Open</div>
-      <div class="tile-value" id="open">—</div>
-      <div class="tile-note" id="open-note"></div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Win rate</div>
-      <div class="tile-value" id="winrate">—</div>
-      <div class="tile-note" id="winrate-note"></div>
+    <div class="stat">
+      <div class="label">Trades</div>
+      <div class="stat-v" id="tradecount">—</div>
+      <div class="stat-n" id="tradecount-note"></div>
     </div>
   </div>
 
-  <div class="card" id="chart-card" hidden>
-    <div class="card-head">
-      <div class="card-title">Equity — realized, per closed trade</div>
-      <div class="card-meta" id="chart-meta"></div>
+  <div class="panel" id="chart-card" hidden>
+    <div class="bar-head" style="margin-bottom:11px">
+      <span class="label">Equity Curve</span>
+      <span class="muted" id="chart-meta"></span>
     </div>
     <div class="chart" id="chart">
-      <svg id="svg" viewBox="0 0 720 140" preserveAspectRatio="none" role="img"
+      <svg id="svg" viewBox="0 0 720 138" preserveAspectRatio="none" role="img"
            aria-label="Equity after each closed trade"></svg>
       <div class="tooltip" id="tip"></div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head">
-      <div class="card-title">Last scan</div>
-      <div class="card-meta" id="scan-when"></div>
+  <div class="panel">
+    <div class="bar-head" style="margin-bottom:11px">
+      <span class="label">Scanner</span>
+      <span class="muted" id="scan-when"></span>
     </div>
-    <div id="scan"><div class="empty">Waiting for the first scan…</div></div>
+    <div id="scan"><div class="empty"><div class="empty-t">Awaiting first scan</div></div></div>
     <div class="spark-caption" id="spark-caption" hidden></div>
-    <svg class="spark" id="spark" viewBox="0 0 300 30" preserveAspectRatio="none"
-         role="img" aria-label="Tokens scanned per cycle recently"></svg>
+    <svg class="spark" id="spark" viewBox="0 0 300 28" preserveAspectRatio="none"
+         role="img" aria-label="Tokens scanned per cycle"></svg>
   </div>
 
-  <div class="card">
-    <div class="card-head">
-      <div class="card-title">Open positions</div>
-      <div class="card-meta" id="pos-meta"></div>
+  <div class="panel">
+    <div class="bar-head" style="margin-bottom:11px">
+      <span class="label">Open Positions</span>
+      <span class="muted" id="pos-meta"></span>
     </div>
-    <div id="positions"><div class="empty">No open positions.</div></div>
+    <div id="positions"></div>
   </div>
 
-  <div class="card">
-    <div class="card-head">
-      <div class="card-title">Closed trades</div>
-      <div class="card-meta" id="closed-meta"></div>
+  <div class="panel">
+    <div class="bar-head" style="margin-bottom:11px">
+      <span class="label">Closed</span>
+      <span class="muted" id="closed-meta"></span>
     </div>
-    <div class="scroll" id="closed"><div class="empty">No closed trades yet.</div></div>
+    <div class="scroll" id="closed"></div>
   </div>
 
-  <div class="card">
-    <div class="card-head">
-      <div class="card-title">Recent fills</div>
-      <div class="card-meta">newest first</div>
+  <div class="panel">
+    <div class="bar-head" style="margin-bottom:11px">
+      <span class="label">Order Flow</span>
+      <span class="muted">newest first</span>
     </div>
-    <div class="note" id="fills-note" hidden>A negative net cost is the
-      account rent coming back when a position is fully closed.</div>
-    <div class="scroll" id="fills"><div class="empty">No fills yet.</div></div>
+    <div class="note" id="fills-note" hidden>Negative cost is reclaimed
+      account rent on a fully closed position.</div>
+    <div class="scroll" id="fills"></div>
   </div>
 
-  <div class="foot" id="foot">
-    Paper trading — no real funds are at risk.<br>
-    Every figure is read from the bot's own database.
-  </div>
+  <div class="foot" id="foot"></div>
 </div>
 
 <script>
@@ -551,126 +538,30 @@ function drawChart(equity, start) {
 }
 
 // --- Positions -----------------------------------------------------------
-function renderPositions(positions) {
-  const host = $("positions");
-  if (!positions.length) {
-    host.innerHTML = `<div class="empty-rich">
-      <div class="empty-title">Nothing held right now</div>
-      <div class="empty-body">The bot buys only when a token clears every
-        filter. Most cycles that is nothing — the scan above shows why.</div>
-    </div>`;
-    return;
+// A live strip of what the scanner holds and what it just turned down.
+// Duplicated once so the marquee wraps without a visible seam.
+function renderTicker(state) {
+  const host = $("ticker"), track = $("ticker-track");
+  const items = [];
+
+  for (const p of state.positions) {
+    const gain = p.entry_price > 0 ? (p.peak_price / p.entry_price - 1) : 0;
+    const arrow = gain > 0 ? "\u25B2" : gain < 0 ? "\u25BC" : "\u00B7";
+    const cls = gain > 0 ? "up" : gain < 0 ? "down" : "";
+    items.push(`<span class="tick"><b>${escapeHtml(p.symbol)}</b> ` +
+      `<span class="${cls}">${arrow} ${(gain * 100).toFixed(1)}%</span></span>`);
   }
-  host.innerHTML = positions.map(p => {
-    // How far the peak ran between the stop and the first target. Plotting
-    // entry here would be a constant -- it is the reference mark instead.
-    const lo = p.stop_price, hi = p.target_price;
-    const span = (hi - lo) || 1;
-    const entryAt = Math.min(1, Math.max(0, (p.entry_price - lo) / span));
-    const peak = Math.min(1, Math.max(0, (p.peak_price - lo) / span));
-    return `
-    <div class="position">
-      <div class="pos-head">
-        <span class="pos-sym">${escapeHtml(p.symbol)}</span>
-        ${p.unverified && p.unverified.length
-          ? '<span class="pos-tag unverified" title="' +
-            escapeHtml(p.unverified.join("; ")) + '">⚠ Unverified</span>'
-          : ""}
-        ${p.took_profit ? '<span class="pos-tag">▲ Half banked</span>' : ""}
-      </div>
-      <div class="pos-grid">
-        <div><div class="pos-cell-label">Cost</div>
-             <div class="pos-cell-value">${money(p.cost_usd)}</div></div>
-        <div><div class="pos-cell-label">Entry</div>
-             <div class="pos-cell-value">$${price(p.entry_price)}</div></div>
-        <div><div class="pos-cell-label">Peak</div>
-             <div class="pos-cell-value">$${price(p.peak_price)}</div></div>
-        <div><div class="pos-cell-label">Held</div>
-             <div class="pos-cell-value">${heldFor(p.age_hours)}</div></div>
-      </div>
-      <div class="ladder">
-        <div class="ladder-track">
-          <div class="ladder-fill" style="width:${(peak * 100).toFixed(1)}%"></div>
-          <div class="ladder-mark" style="left:${(entryAt * 100).toFixed(1)}%;
-               background:var(--ink-3)" title="entry"></div>
-        </div>
-        <div class="ladder-legend">
-          <span>stop $${price(lo)}</span>
-          <span>peak ${(peak * 100).toFixed(0)}% to target</span>
-          <span>$${price(hi)}</span>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
+  for (const [symbol] of (state.activity && state.activity.near_misses) || []) {
+    items.push(`<span class="tick">${escapeHtml(symbol)} ` +
+      `<span class="muted">skipped</span></span>`);
+  }
+  if (!items.length) { host.hidden = true; return; }
+  host.hidden = false;
+  track.innerHTML = items.join("") + items.join("");
 }
 
-// --- Scan funnel ---------------------------------------------------------
-function renderScan(activity, positions, maxPositions) {
-  const host = $("scan");
-  if (!activity) {
-    host.innerHTML = '<div class="empty">Waiting for the first scan…</div>';
-    return;
-  }
-  $("scan-when").textContent = ago(Date.now() / 1000 - activity.at);
-
-  const steps = [
-    ["seen", activity.scanned],
-    ["shortlist", activity.shortlisted ?? 0],
-    ["verified", activity.candidates],
-    ["bought", activity.entered],
-  ];
-  const funnel = steps.map(([label, n]) => `
-    <div class="step ${n > 0 ? "hit" : ""}">
-      <div class="step-n">${n}</div><div class="step-l">${label}</div>
-    </div>`).join("");
-
-  const reasons = Object.entries(activity.rejections || {})
-    .sort((a, b) => b[1] - a[1]);
-  const chips = reasons.length
-    ? `<div class="why">` + reasons.map(([why, n]) =>
-        `<span class="chip"><b>${n}</b> ${escapeHtml(why)}</span>`).join("") +
-      `</div>`
-    : "";
-
-  let note = "";
-  const lookups = activity.rpc_lookups || 0;
-  const failures = activity.rpc_failures || 0;
-  if (lookups > 0 && failures / lookups > 0.5) {
-    note = `<div class="note" style="color:var(--warn)">
-      ${failures} of ${lookups} on-chain lookups failed. Contract checks
-      cannot pass while the endpoint is unreachable, so nothing will verify.
-      This is an infrastructure problem, not a market one.</div>`;
-  } else if (activity.skipped_reason) {
-    note = `<div class="note">Not buying: ${escapeHtml(activity.skipped_reason)}</div>`;
-  } else if (activity.scanned === 0) {
-    note = `<div class="note">No market data this cycle — the feed may be
-      unreachable. Run <code>doctor</code> to check.</div>`;
-  } else if (activity.candidates === 0) {
-    note = `<div class="note">Nothing cleared the filters this cycle. That is
-      the normal result most of the time — the bot is designed to sit out.</div>`;
-  }
-  const misses = activity.near_misses || [];
-  let missBlock = "";
-  if (misses.length) {
-    missBlock = `<div class="misses">
-      <div class="misses-title">Closest calls — cleared the market checks,
-        failed verification</div>` +
-      misses.map(([symbol, reasons]) => `
-        <div class="miss">
-          <div class="miss-sym">${escapeHtml(symbol)}</div>
-          <ul class="miss-reasons">${
-            reasons.map(r => `<li>${escapeHtml(r)}</li>`).join("")
-          }</ul>
-        </div>`).join("") + `</div>`;
-  }
-  host.innerHTML = funnel
-    ? `<div class="funnel">${funnel}</div>${chips}${note}${missBlock}` : "";
-}
-
-// Cycles land roughly every 15 minutes, so an estimate of the next one is
-// more use than a stopwatch on the last.
-// The scheduler aims for every five minutes but drops runs, so "due" is an
-// estimate and lateness is normal. Only a long gap means something is wrong.
+// Cycles arrive roughly hourly however often they are asked for, so "due" is
+// an estimate and lateness is normal. Only a long gap means something broke.
 const CYCLE_SECONDS = 5 * 60;
 const STALE_SECONDS = 45 * 60;
 
@@ -683,7 +574,7 @@ function renderStrip(state) {
   $("strip-scanned").textContent = a.scanned.toLocaleString();
   const risk = state.risk || {};
   $("strip-risk").textContent = risk.per_trade_pct
-    ? (risk.per_trade_pct * 100).toFixed(0) + "%" : "—";
+    ? (risk.per_trade_pct * 100).toFixed(0) + "%" : "\u2014";
 
   const since = Date.now() / 1000 - (state.generated_at || 0);
   if (since > STALE_SECONDS) {
@@ -695,8 +586,8 @@ function renderStrip(state) {
   }
 }
 
-// The paper run is a three-week experiment. Most cycles do nothing, so
-// showing accumulated progress is what separates "working" from "stuck".
+// The paper run is a three-week experiment in which most cycles do nothing,
+// so accumulated progress is what separates "working" from "stuck".
 const RUN_DAYS = 21;
 
 function renderProgress(state) {
@@ -706,24 +597,82 @@ function renderProgress(state) {
   host.hidden = false;
 
   const day = Math.min(RUN_DAYS, Math.floor(run.days) + 1);
-  $("progress-day").textContent = `Day ${day} of ${RUN_DAYS}`;
+  $("progress-day").textContent = `DAY ${day} / ${RUN_DAYS}`;
   $("progress-detail").textContent =
-    `${run.cycles.toLocaleString()} cycles · ` +
-    `${run.tokens_seen.toLocaleString()} tokens examined`;
+    `${run.cycles.toLocaleString()} cycles \u00B7 ` +
+    `${run.tokens_seen.toLocaleString()} tokens seen`;
   $("progress-fill").style.width =
     Math.min(100, (run.days / RUN_DAYS) * 100).toFixed(1) + "%";
+}
+
+function renderScan(activity) {
+  const host = $("scan");
+  if (!activity) {
+    host.innerHTML = `<div class="empty"><div class="empty-t">Awaiting first scan</div></div>`;
+    return;
+  }
+  $("scan-when").textContent = ago(Date.now() / 1000 - activity.at);
+
+  const steps = [
+    ["seen", activity.scanned],
+    ["shortlist", activity.shortlisted ?? 0],
+    ["verified", activity.candidates],
+    ["bought", activity.entered],
+  ];
+  const funnel = steps.map(([label, n], i) => `
+    ${i ? '<span class="arrow">&#9656;</span>' : ""}
+    <div class="node ${n > 0 ? "live" : ""}">
+      <div class="node-v">${n}</div><div class="node-l">${label}</div>
+    </div>`).join("");
+
+  const reasons = Object.entries(activity.rejections || {})
+    .sort((a, b) => b[1] - a[1]);
+  const chips = reasons.length
+    ? `<div class="chips">` + reasons.map(([why, n]) =>
+        `<span class="chip"><b>${n}</b> ${escapeHtml(why)}</span>`).join("") +
+      `</div>`
+    : "";
+
+  let note = "";
+  const lookups = activity.rpc_lookups || 0;
+  const failures = activity.rpc_failures || 0;
+  if (lookups > 0 && failures / lookups > 0.5) {
+    note = `<div class="note" style="color:var(--warn)">
+      ${failures} of ${lookups} on-chain lookups failed. Nothing can verify
+      while the endpoint is unreachable — an infrastructure problem, not a
+      market one.</div>`;
+  } else if (activity.skipped_reason) {
+    note = `<div class="note">Not buying: ${escapeHtml(activity.skipped_reason)}</div>`;
+  } else if (activity.scanned === 0) {
+    note = `<div class="note">No market data this cycle. Run <code>doctor</code>
+      to check the feeds.</div>`;
+  } else if (activity.candidates === 0) {
+    note = `<div class="note">Nothing cleared the filters this cycle — the
+      normal result most of the time.</div>`;
+  }
+
+  const misses = activity.near_misses || [];
+  let missBlock = "";
+  if (misses.length) {
+    missBlock = `<div class="misses">
+      <div class="misses-t">Closest calls — cleared market checks, failed
+        verification</div>` +
+      misses.map(([symbol, rs]) => `
+        <div class="miss">
+          <div class="miss-s">${escapeHtml(symbol)}</div>
+          <ul class="miss-r">${rs.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
+        </div>`).join("") + `</div>`;
+  }
+  host.innerHTML = `<div class="pipe">${funnel}</div>${chips}${note}${missBlock}`;
 }
 
 function drawSpark(history) {
   const svg = $("spark");
   svg.innerHTML = "";
-  if (!history || history.length < 2) {
-    $("spark-caption").hidden = true;
-    return;
-  }
+  if (!history || history.length < 2) { $("spark-caption").hidden = true; return; }
 
   const values = history.map(h => h.scanned);
-  const W = 300, H = 30, PAD = 3;
+  const W = 300, H = 28, PAD = 3;
   const hi = Math.max(...values), lo = Math.min(...values);
   const span = (hi - lo) || 1;
   const x = i => (i / (values.length - 1)) * W;
@@ -738,24 +687,67 @@ function drawSpark(history) {
   const dot = document.createElementNS(ns, "circle");
   dot.setAttribute("cx", x(values.length - 1));
   dot.setAttribute("cy", y(values[values.length - 1]));
-  dot.setAttribute("r", 2.5);
+  dot.setAttribute("r", 2.2);
   dot.setAttribute("class", "spark-dot");
   svg.appendChild(dot);
 
   const caption = $("spark-caption");
   caption.hidden = false;
   caption.textContent =
-    `tokens seen per cycle · last ${values.length} · now ${values[values.length - 1]}`;
+    `tokens per cycle \u00B7 last ${values.length} \u00B7 now ${values[values.length - 1]}`;
+}
+
+function renderPositions(positions) {
+  const host = $("positions");
+  if (!positions.length) {
+    host.innerHTML = `<div class="empty">
+      <div class="empty-t">No open positions</div>
+      <div class="empty-b">The scanner buys only what clears every filter.
+        Most cycles that is nothing.</div></div>`;
+    return;
+  }
+  host.innerHTML = positions.map(p => {
+    const lo = p.stop_price, hi = p.target_price;
+    const span = (hi - lo) || 1;
+    const entryAt = Math.min(1, Math.max(0, (p.entry_price - lo) / span));
+    const peak = Math.min(1, Math.max(0, (p.peak_price - lo) / span));
+    const gain = p.entry_price > 0 ? (p.peak_price / p.entry_price - 1) : 0;
+    const flagged = p.unverified && p.unverified.length;
+    return `
+    <div class="row">
+      <div class="row-main">
+        <div class="row-top">
+          <span class="sym">${escapeHtml(p.symbol)}</span>
+          ${flagged ? `<span class="pill warn" title="${
+            escapeHtml(p.unverified.join("; "))}">unverified</span>` : ""}
+          ${p.took_profit ? '<span class="pill ok">half banked</span>' : ""}
+        </div>
+        <div class="row-sub">
+          $${price(p.entry_price)} entry · held ${heldFor(p.age_hours)}
+        </div>
+      </div>
+      <div class="row-val">
+        <div class="row-val-v">${money(p.cost_usd)}</div>
+        <div class="row-val-n ${gain > 0 ? "up" : gain < 0 ? "down" : ""}">
+          peak ${gain > 0 ? "▲ +" : gain < 0 ? "▼ " : ""}${(gain * 100).toFixed(1)}%
+        </div>
+      </div>
+      <div class="track">
+        <div class="track-fill" style="width:${(peak * 100).toFixed(1)}%"></div>
+        <div class="track-mark" style="left:${(entryAt * 100).toFixed(1)}%"></div>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 // --- Tables --------------------------------------------------------------
 function renderClosed(rows) {
   const host = $("closed");
   if (!rows.length) {
-    host.innerHTML = `<div class="empty-rich">
-      <div class="empty-title">No completed trades yet</div>
-      <div class="empty-body">Results appear here once a position closes.
-        Under about 30 trades the numbers are still noise.</div>
+    host.innerHTML = `<div class="empty">
+      <div class="empty-t">No completed trades</div>
+      <div class="empty-b">Results land here once a position closes. Under
+        about 30 trades the numbers are still noise.</div>
     </div>`;
     return;
   }
@@ -768,8 +760,8 @@ function renderClosed(rows) {
     return `<tr>
       <td class="num">${escapeHtml(r.symbol)}</td>
       <td class="num ${cls}">${glyph} ${positive ? "+" : ""}${money(r.realized_usd)}</td>
-      <td class="reason">${escapeHtml(r.reason.replace(/_/g, " "))}</td>
-      <td class="reason">${ago(Date.now() / 1000 - r.closed_at)}</td>
+      <td class="muted">${escapeHtml(r.reason.replace(/_/g, " "))}</td>
+      <td class="muted">${ago(Date.now() / 1000 - r.closed_at)}</td>
     </tr>`;
   }).join("") + "</tbody></table>";
 }
@@ -777,10 +769,10 @@ function renderClosed(rows) {
 function renderFills(rows) {
   const host = $("fills");
   if (!rows.length) {
-    host.innerHTML = `<div class="empty-rich">
-      <div class="empty-title">No orders placed yet</div>
-      <div class="empty-body">Every buy and sell will be logged here with its
-        price, size and reason.</div>
+    host.innerHTML = `<div class="empty">
+      <div class="empty-t">No orders yet</div>
+      <div class="empty-b">Every buy and sell lands here with price, size and
+        reason.</div>
     </div>`;
     return;
   }
@@ -792,7 +784,7 @@ function renderFills(rows) {
       <td class="num">$${price(r.price)}</td>
       <td class="num">${money(r.usd)}</td>
       <td class="num">${money(r.fee)}</td>
-      <td class="reason">${escapeHtml((r.reason || "").replace(/_/g, " "))}</td>
+      <td class="muted">${escapeHtml((r.reason || "").replace(/_/g, " "))}</td>
     </tr>`).join("") + "</tbody></table>";
 }
 
@@ -808,32 +800,38 @@ let lastState = {};
 
 // Served by the bot: read the live endpoint. Served statically (GitHub
 // Pages), there is no endpoint, so fall back to the committed snapshot.
-let endpoint = "/api/state";
+let endpoint = null;
 let staticMode = false;
 
-// GitHub Pages serves through a CDN that caches for minutes at a time, and
-// `no-store` only governs the browser's own cache. A unique query string per
-// request is what actually gets past the edge, so the page shows the newest
-// snapshot rather than a cached one.
-function bust(url) {
-  return url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+// Which source exists is decided once. Two refreshes can start before either
+// finishes, so the resolution is memoised as a promise rather than a flag --
+// otherwise both probe the endpoint that is not there and both log a 404.
+let resolving = null;
+
+function resolveEndpoint() {
+  if (endpoint) return Promise.resolve(endpoint);
+  if (resolving) return resolving;
+
+  resolving = fetch(bust("/api/state"), { cache: "no-store" })
+    .then(response => {
+      if (!response.ok) throw new Error(String(response.status));
+      endpoint = "/api/state";
+      return endpoint;
+    })
+    .catch(() => {
+      // Served statically: no endpoint, read the committed snapshot.
+      endpoint = "state.json";
+      staticMode = true;
+      return endpoint;
+    });
+  return resolving;
 }
 
 async function load() {
-  try {
-    const response = await fetch(bust(endpoint), { cache: "no-store" });
-    if (!response.ok) throw new Error(String(response.status));
-    return await response.json();
-  } catch (error) {
-    if (endpoint === "/api/state") {
-      endpoint = "state.json";
-      staticMode = true;
-      const retry = await fetch(bust(endpoint), { cache: "no-store" });
-      if (!retry.ok) throw error;
-      return await retry.json();
-    }
-    throw error;
-  }
+  const source = await resolveEndpoint();
+  const response = await fetch(bust(source), { cache: "no-store" });
+  if (!response.ok) throw new Error(String(response.status));
+  return await response.json();
 }
 
 async function refresh() {
@@ -875,6 +873,9 @@ async function refresh() {
     $("open-note").textContent = money(state.open_cost) + " committed";
 
     const s = state.stats;
+    $("tradecount").textContent = s.trades;
+    $("tradecount-note").textContent = s.trades
+      ? money(s.realized_usd) + " realized" : "none closed";
     $("winrate").textContent = s.trades ? pct(s.win_rate) : "—";
     $("winrate-note").textContent = s.trades
       ? `${s.wins}W / ${s.losses}L` : "no closed trades";
@@ -899,6 +900,7 @@ async function refresh() {
 
     renderStrip(state);
     renderProgress(state);
+    renderTicker(state);
     renderScan(state.activity, state.positions, state.max_positions);
     drawSpark(state.scan_history);
     // An empty plot is a large block of nothing; show it once there is a

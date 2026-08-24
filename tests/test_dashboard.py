@@ -136,7 +136,7 @@ def test_the_server_serves_page_and_state(tmp_path):
         page = urllib.request.urlopen(
             f"http://127.0.0.1:{port}/", timeout=5
         ).read().decode()
-        assert "<title>Trading Bot</title>" in page
+        assert "<title>Memecoin Terminal</title>" in page
         assert "/api/state" in page
 
         payload = json.loads(urllib.request.urlopen(
@@ -289,7 +289,7 @@ def test_the_page_busts_the_cdn_cache():
 
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert "function bust(" in page
-    assert "bust(endpoint)" in page
+    assert "bust(source)" in page, "the fetch must go through the buster"
     assert "Date.now()" in page
 
 
@@ -367,9 +367,9 @@ def test_empty_states_explain_rather_than_look_broken():
     import memecoin_bot
 
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
-    assert "Nothing held right now" in page
-    assert "No completed trades yet" in page
-    assert "No orders placed yet" in page
+    assert "No open positions" in page
+    assert "No completed trades" in page
+    assert "No orders yet" in page
 
 
 # --- Run progress --------------------------------------------------------
@@ -406,6 +406,7 @@ def test_the_page_renders_the_run_progress():
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert "renderProgress" in page
     assert "RUN_DAYS" in page
+    assert "DAY ${day}" in page
 
 
 def test_the_funnel_shows_the_shortlist_step():
@@ -492,3 +493,24 @@ def test_near_misses_default_on_an_older_database(tmp_path):
     )
     legacy.commit(); legacy.close()
     assert Store(path).load_activity()["near_misses"] == []
+
+
+def test_the_page_carries_its_own_favicon():
+    """Served statically there is no 204 route, so a missing icon logs a 404
+    on every load. An inline data URI keeps the page self-contained."""
+
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert 'rel="icon"' in page
+    assert "data:image/svg+xml" in page
+
+
+def test_the_ticker_marks_direction_without_relying_on_colour():
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "renderTicker" in page
+    assert "\\u25B2" in page and "\\u25BC" in page
