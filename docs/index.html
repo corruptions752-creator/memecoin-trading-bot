@@ -613,7 +613,14 @@ function renderScan(activity, positions, maxPositions) {
     : "";
 
   let note = "";
-  if (activity.skipped_reason) {
+  const lookups = activity.rpc_lookups || 0;
+  const failures = activity.rpc_failures || 0;
+  if (lookups > 0 && failures / lookups > 0.5) {
+    note = `<div class="note" style="color:var(--warn)">
+      ${failures} of ${lookups} on-chain lookups failed. Contract checks
+      cannot pass while the endpoint is unreachable, so nothing will verify.
+      This is an infrastructure problem, not a market one.</div>`;
+  } else if (activity.skipped_reason) {
     note = `<div class="note">Not buying: ${escapeHtml(activity.skipped_reason)}</div>`;
   } else if (activity.scanned === 0) {
     note = `<div class="note">No market data this cycle — the feed may be
