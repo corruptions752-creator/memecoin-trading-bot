@@ -36,7 +36,10 @@ permissions:
 jobs:
   cycle:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Run 4 was killed at 10 minutes by the one-request-per-token discovery.
+    # Batching fixed the cause; this is headroom so a slow API cannot silently
+    # cost a whole cycle.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

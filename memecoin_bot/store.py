@@ -71,6 +71,16 @@ CREATE TABLE IF NOT EXISTS activity (
     skipped_reason TEXT    NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS activity_history (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    at         REAL    NOT NULL,
+    scanned    INTEGER NOT NULL,
+    candidates INTEGER NOT NULL,
+    entered    INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_history_at ON activity_history (at);
+
 CREATE TABLE IF NOT EXISTS mint_blocks (
     mint          TEXT    PRIMARY KEY,
     blocked_until REAL    NOT NULL,
@@ -268,7 +278,33 @@ class Store:
                 json.dumps(rejections), skipped_reason,
             ),
         )
+        self._connection.execute(
+            "INSERT INTO activity_history (at, scanned, candidates, entered) "
+            "VALUES (?, ?, ?, ?)",
+            (at, scanned, candidates, entered),
+        )
+        # Keep the history bounded; the page only plots the recent tail.
+        self._connection.execute(
+            "DELETE FROM activity_history WHERE id NOT IN "
+            "(SELECT id FROM activity_history ORDER BY at DESC LIMIT 200)"
+        )
         self._connection.commit()
+
+    def activity_history(self, limit: int = 60) -> list[dict]:
+        """Recent scans, oldest first, for the dashboard's trend line."""
+
+        rows = self._connection.execute(
+            "SELECT at, scanned, candidates, entered FROM activity_history "
+            "ORDER BY at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {
+                "at": r["at"], "scanned": r["scanned"],
+                "candidates": r["candidates"], "entered": r["entered"],
+            }
+            for r in reversed(rows)
+        ]
 
     def load_activity(self) -> dict | None:
         """The most recent scan, or ``None`` before the first one."""

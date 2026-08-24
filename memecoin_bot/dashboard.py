@@ -86,10 +86,12 @@ def build_state(settings: Settings, store: Store) -> dict:
     ][::-1]
 
     activity = store.load_activity()
+    history = store.activity_history()
 
     return {
         "mode": settings.mode,
         "activity": activity,
+        "scan_history": history,
         "lp_policy": resolve_lp_policy(settings),
         "generated_at": now,
         "bankroll": risk["cash_usd"] + risk["open_cost_usd"],

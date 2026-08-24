@@ -303,3 +303,70 @@ def test_the_page_refreshes_when_reopened():
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert "visibilitychange" in page
     assert "pageshow" in page
+
+
+# --- Scan history and status strip ---------------------------------------
+
+def test_scan_history_is_recorded_and_served(tmp_path):
+    """One number cannot show a trend; the page plots recent cycles."""
+
+    settings, store = traded(tmp_path)
+    # traded() runs a cycle, which records one row of its own.
+    before = len(store.activity_history())
+    for i in range(5):
+        store.save_activity(
+            at=NOW + 100 + i, scanned=100 + i * 10, rejected=90, candidates=i,
+            entered=0, rejections={"liquidity": 90},
+        )
+    history = build_state(settings, store)["scan_history"]
+    assert len(history) == before + 5
+    assert [h["scanned"] for h in history[-5:]] == [100, 110, 120, 130, 140]
+
+
+def test_scan_history_is_bounded(tmp_path):
+    """A run every 15 minutes for weeks must not grow without limit."""
+
+    settings, store = traded(tmp_path)
+    for i in range(260):
+        store.save_activity(
+            at=NOW + i, scanned=100, rejected=100, candidates=0,
+            entered=0, rejections={},
+        )
+    rows = store._connection.execute(
+        "SELECT COUNT(*) AS n FROM activity_history"
+    ).fetchone()
+    assert rows["n"] <= 200
+
+
+def test_scan_history_is_oldest_first(tmp_path):
+    settings, store = traded(tmp_path)
+    for i in range(4):
+        store.save_activity(
+            at=NOW + 100 + i, scanned=i, rejected=0, candidates=0, entered=0,
+            rejections={},
+        )
+    timestamps = [h["at"] for h in store.activity_history()]
+    assert timestamps == sorted(timestamps), "history must be oldest first"
+
+
+def test_the_page_renders_a_trend_and_a_next_check():
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "drawSpark" in page
+    assert "renderStrip" in page
+    assert "overdue" in page, "a stalled runner must be visible"
+
+
+def test_empty_states_explain_rather_than_look_broken():
+    """With no trades the page is mostly empty; it must read as working and
+    waiting, not as failed."""
+
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "Nothing held right now" in page
+    assert "No completed trades yet" in page
+    assert "No orders placed yet" in page
