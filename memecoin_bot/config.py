@@ -60,7 +60,20 @@ class Settings:
     min_pair_age_seconds: int = 30 * 60
     """Refuse tokens younger than this. The first minutes are where the
     sniper bots and the instant rugs live."""
-    max_pair_age_seconds: int = 7 * 24 * 3_600
+    max_pair_age_seconds: int = 180 * 24 * 3_600
+    """A backstop against abandoned pools, not a momentum filter.
+
+    This was one week, on the reasoning that older pairs were "past the
+    momentum window" -- which confuses a pair's age with its momentum. The
+    strategy measures momentum directly from the 5-minute and 1-hour moves,
+    so an established token making a sharp move is exactly as valid a
+    momentum trade as a new one. On a live scan the week-long cap rejected
+    67 of 151 pairs, more than any other rule, for a reason that does not
+    hold up.
+
+    Whether a pool is dead is answered better by the liquidity and volume
+    floors than by its age, so this is now only a guard against pairs that
+    have been abandoned for months."""
     max_fdv_usd: float = 50_000_000.0
     min_buy_sell_ratio_5m: float = 0.8
     liquidity_exit_floor_pct: float = 0.5

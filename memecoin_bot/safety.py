@@ -144,7 +144,7 @@ def screen(
         )
     elif age > settings.max_pair_age_seconds:
         failures.append(
-            f"pair {age / 86_400:.1f}d old, past the momentum window"
+            f"pair {age / 86_400:.0f}d old, likely abandoned"
         )
 
     if snapshot.fdv_usd > settings.max_fdv_usd > 0:

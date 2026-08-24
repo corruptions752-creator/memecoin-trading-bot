@@ -67,12 +67,18 @@ def test_brand_new_pair_rejected(settings):
 
 
 def test_stale_pair_rejected(settings):
+    """Superseded: 30 days is no longer stale. See the abandoned-pool test.
+
+    The upper age bound is now a guard against months-abandoned pools rather
+    than a momentum filter, so a month-old pair is a normal candidate.
+    """
+
     report = screen(
         make_snapshot(pair_created_at=NOW - 30 * 86_400),
         settings,
         safe_authority(),
     )
-    assert not report.passed
+    assert report.passed, report.failures
 
 
 def test_unknown_pair_age_rejected(settings):
@@ -128,3 +134,36 @@ def test_market_failures_still_apply_without_contract_checks(settings):
 def test_describe_is_readable(settings):
     report = screen(make_snapshot(liquidity_usd=1.0), settings, safe_authority())
     assert "rejected" in report.describe()
+
+
+def test_an_established_token_is_not_rejected_for_age(settings):
+    """A pair's age is not its momentum.
+
+    A one-week cap rejected 67 of 151 pairs on a live scan, for the stated
+    reason that they were 'past the momentum window'. Momentum is measured
+    directly from recent price moves, so an established token making a sharp
+    move is a valid candidate.
+    """
+
+    month_old = make_snapshot(pair_created_at=NOW - 30 * 86_400)
+    report = screen(month_old, settings, safe_authority())
+    assert report.passed, report.failures
+
+
+def test_an_abandoned_pool_is_still_rejected(settings):
+    report = screen(
+        make_snapshot(pair_created_at=NOW - 400 * 86_400),
+        settings, safe_authority(),
+    )
+    assert not report.passed
+    assert any("abandoned" in r for r in report.failures)
+
+
+def test_the_minimum_age_still_blocks_fresh_launches(settings):
+    """Loosening the upper bound must not touch the rug guard."""
+
+    report = screen(
+        make_snapshot(pair_created_at=NOW - 300), settings, safe_authority()
+    )
+    assert not report.passed
+    assert any("old, minimum" in r for r in report.failures)
