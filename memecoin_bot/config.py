@@ -30,6 +30,7 @@ PROFILES = {
         "daily_loss_limit_pct": 0.05,
         "min_entry_score": 0.55,
         "min_liquidity_usd": 25_000.0,
+        "lp_substitute_min_liquidity_usd": 100_000.0,
     },
     "balanced": {
         "risk_fraction_per_trade": 0.03,
@@ -40,6 +41,7 @@ PROFILES = {
         "daily_loss_limit_pct": 0.10,
         "min_entry_score": 0.45,
         "min_liquidity_usd": 15_000.0,
+        "lp_substitute_min_liquidity_usd": 45_000.0,
     },
     "aggressive": {
         "risk_fraction_per_trade": 0.05,
@@ -50,6 +52,7 @@ PROFILES = {
         "daily_loss_limit_pct": 0.20,
         "min_entry_score": 0.35,
         "min_liquidity_usd": 10_000.0,
+        "lp_substitute_min_liquidity_usd": 25_000.0,
     },
 }
 
@@ -212,6 +215,13 @@ class Settings:
     Paper risks no money, so observing behaviour beats refusing to act;
     live keeps the strict rule."""
     lp_substitute_min_liquidity_usd: float = 100_000.0
+    """Depth at which pool age is accepted in place of a proven LP lock.
+
+    It must sit above the market liquidity floor, but not so far above it
+    that a band opens which passes the market screen and then always fails
+    the LP check. The aggressive profile accepted $10k of liquidity while
+    this stayed at $100k, so every token between the two cleared phase one
+    and died in phase two -- which is precisely what a live run showed."""
     lp_substitute_min_age_seconds: int = 6 * 3_600
 
     # --- Re-entry control -------------------------------------------------
@@ -351,6 +361,10 @@ def load_settings() -> Settings:
         min_liquidity_usd=_float(
             "MEMEBOT_MIN_LIQUIDITY_USD", profile["min_liquidity_usd"],
             minimum=0.0,
+        ),
+        lp_substitute_min_liquidity_usd=_float(
+            "MEMEBOT_LP_SUBSTITUTE_MIN_LIQUIDITY_USD",
+            profile["lp_substitute_min_liquidity_usd"], minimum=0.0,
         ),
         rpc_endpoint=os.getenv(
             "MEMEBOT_RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"

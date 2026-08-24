@@ -48,6 +48,11 @@ class CycleReport:
     shortlisted: int = 0
     """Cleared the free market checks and so were worth paying for on-chain
     verification. Contract checks run only on these."""
+    rpc_failures: int = 0
+    """On-chain lookups that could not read the chain at all. A rejection
+    caused by an unreachable endpoint looks identical to one caused by a
+    dangerous token, and they mean opposite things."""
+    rpc_lookups: int = 0
 
 
 class TradingEngine:
@@ -219,6 +224,8 @@ class TradingEngine:
                 rejected=report.rejected,
                 candidates=report.candidates,
                 shortlisted=report.shortlisted,
+                rpc_failures=report.rpc_failures,
+                rpc_lookups=report.rpc_lookups,
                 entered=len(report.entered),
                 rejections=report.rejections,
                 skipped_reason=report.skipped_reason,
@@ -340,6 +347,8 @@ class TradingEngine:
 
         report.shortlisted = len(shortlist)
         report.candidates = len(ranked)
+        report.rpc_lookups = getattr(self.authority, "lookups", 0)
+        report.rpc_failures = getattr(self.authority, "rpc_failures", 0)
 
         ranked.sort(key=lambda entry: entry.score, reverse=True)
 

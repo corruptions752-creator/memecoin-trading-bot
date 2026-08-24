@@ -490,3 +490,65 @@ def test_a_contract_rejection_is_still_bucketed():
     report = engine.run_cycle(NOW)
     assert report.candidates == 0
     assert "unsellable" in report.rejections
+
+
+def test_unreachable_chain_lookups_are_counted_separately():
+    """A rejection caused by an unreachable endpoint looks identical to one
+    caused by a dangerous token, and they mean opposite things."""
+
+    from memecoin_bot.onchain import OnChainAuthorityProvider
+    from memecoin_bot.safety import TokenAuthority
+
+    class DeadRpc:
+        def get_mint_state(self, mint):
+            return None
+        def get_top_holder_pct(self, mint, supply, *, ignore=frozenset()):
+            return None
+
+    class Jup:
+        def can_sell(self, mint, amount, *, max_price_impact_pct=0.15):
+            return True
+
+    settings = deterministic_settings(min_entry_score=0.01)
+    provider = OnChainAuthorityProvider(settings, rpc=DeadRpc(), jupiter=Jup())
+
+    good = make_snapshot(mint="MintGood", symbol="GOOD")
+    market = FakeMarket([good], {good.mint: good})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"), provider,
+    )
+    report = engine.run_cycle(NOW)
+
+    assert report.rpc_lookups >= 1
+    assert report.rpc_failures == report.rpc_lookups
+    assert report.candidates == 0
+
+
+def test_a_reachable_chain_reports_no_failures():
+    from memecoin_bot.onchain import OnChainAuthorityProvider
+    from memecoin_bot.chain import MintState
+
+    class LiveRpc:
+        def get_mint_state(self, mint):
+            return MintState(True, True, 10**15, 6, "TokenkegQ")
+        def get_top_holder_pct(self, mint, supply, *, ignore=frozenset()):
+            return 0.04
+
+    class Jup:
+        def can_sell(self, mint, amount, *, max_price_impact_pct=0.15):
+            return True
+
+    settings = deterministic_settings(min_entry_score=0.01)
+    provider = OnChainAuthorityProvider(settings, rpc=LiveRpc(), jupiter=Jup())
+    good = make_snapshot(mint="MintGood", symbol="GOOD", liquidity_usd=500_000.0)
+    market = FakeMarket([good], {good.mint: good})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.start(settings, NOW), Store(":memory:"), provider,
+    )
+    report = engine.run_cycle(NOW)
+
+    assert report.rpc_failures == 0
+    assert report.candidates == 1, "a clean token on a live chain must verify"
+    assert report.entered == ["GOOD"]

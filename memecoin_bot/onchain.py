@@ -67,6 +67,11 @@ class OnChainAuthorityProvider:
             settings.jupiter_endpoint, settings.request_timeout_seconds
         )
         self._cache: dict[str, _CacheEntry] = {}
+        self.lookups = 0
+        self.rpc_failures = 0
+        """A lookup that could not read the mint at all. Distinguishes 'this
+        token is unsafe' from 'the endpoint would not answer' -- which look
+        identical in the verdict but mean opposite things."""
 
     def fetch(self, mint: str) -> TokenAuthority:
         """Return what can be verified about ``mint``.
@@ -87,9 +92,13 @@ class OnChainAuthorityProvider:
     def _fetch_uncached(self, mint: str) -> TokenAuthority:
         """Do the actual lookups for one mint."""
 
+        self.lookups += 1
         state = self.rpc.get_mint_state(mint)
         if state is None:
-            # Without the mint account nothing else is worth asking.
+            # Without the mint account nothing else is worth asking. This is
+            # also the signature of an unreachable or throttled endpoint, so
+            # it is counted rather than silently folded into "unsafe".
+            self.rpc_failures += 1
             return TokenAuthority()
 
         top_holder = self.rpc.get_top_holder_pct(mint, state.supply)
@@ -123,6 +132,12 @@ class OnChainAuthorityProvider:
         """
 
         return max(1, int(self.settings.sell_probe_tokens * (10 ** decimals)))
+
+    @property
+    def rpc_failure_rate(self) -> float:
+        """Share of lookups that could not read chain state at all."""
+
+        return self.rpc_failures / self.lookups if self.lookups else 0.0
 
     def clear_cache(self) -> None:
         """Drop cached lookups."""

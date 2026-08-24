@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS activity (
     rejected       INTEGER NOT NULL,
     candidates     INTEGER NOT NULL,
     shortlisted    INTEGER NOT NULL DEFAULT 0,
+    rpc_failures   INTEGER NOT NULL DEFAULT 0,
+    rpc_lookups    INTEGER NOT NULL DEFAULT 0,
     entered        INTEGER NOT NULL,
     rejections     TEXT    NOT NULL DEFAULT '{}',
     skipped_reason TEXT    NOT NULL DEFAULT ''
@@ -259,25 +261,28 @@ class Store:
     def save_activity(
         self, *, at: float, scanned: int, rejected: int, candidates: int,
         entered: int, rejections: dict, skipped_reason: str = "",
-        shortlisted: int = 0,
+        shortlisted: int = 0, rpc_failures: int = 0, rpc_lookups: int = 0,
     ) -> None:
         """Record the most recent scan, overwriting the previous one."""
 
         self._connection.execute(
             """
             INSERT INTO activity (
-                id, at, scanned, rejected, candidates, shortlisted, entered,
-                rejections, skipped_reason
-            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, at, scanned, rejected, candidates, shortlisted,
+                rpc_failures, rpc_lookups, entered, rejections, skipped_reason
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 at = excluded.at, scanned = excluded.scanned,
                 rejected = excluded.rejected, candidates = excluded.candidates,
                 shortlisted = excluded.shortlisted,
+                rpc_failures = excluded.rpc_failures,
+                rpc_lookups = excluded.rpc_lookups,
                 entered = excluded.entered, rejections = excluded.rejections,
                 skipped_reason = excluded.skipped_reason
             """,
             (
-                at, scanned, rejected, candidates, shortlisted, entered,
+                at, scanned, rejected, candidates, shortlisted,
+                rpc_failures, rpc_lookups, entered,
                 json.dumps(rejections), skipped_reason,
             ),
         )
@@ -347,6 +352,8 @@ class Store:
             "at": row["at"], "scanned": row["scanned"],
             "rejected": row["rejected"], "candidates": row["candidates"],
             "shortlisted": row["shortlisted"],
+            "rpc_failures": row["rpc_failures"],
+            "rpc_lookups": row["rpc_lookups"],
             "entered": row["entered"], "rejections": rejections,
             "skipped_reason": row["skipped_reason"],
         }
