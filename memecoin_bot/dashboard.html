@@ -800,6 +800,13 @@ let lastState = {};
 
 // Served by the bot: read the live endpoint. Served statically (GitHub
 // Pages), there is no endpoint, so fall back to the committed snapshot.
+// GitHub Pages serves through a CDN that caches for minutes, and `no-store`
+// governs only the browser's own cache. A unique query string per request is
+// what actually reaches the newest snapshot.
+function bust(url) {
+  return url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+}
+
 let endpoint = null;
 let staticMode = false;
 

@@ -514,3 +514,47 @@ def test_the_ticker_marks_direction_without_relying_on_colour():
     page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
     assert "renderTicker" in page
     assert "\\u25B2" in page and "\\u25BC" in page
+
+
+def test_the_page_has_no_undefined_helpers():
+    """A splice that removes a helper leaves a page that parses but dies on
+    first use. It happened: bust() was deleted and every fetch threw.
+
+    Checks that each helper the script calls is also defined in it.
+    """
+
+    import re
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    script = page[page.index("<script>"):page.index("</script>")]
+
+    defined = set(re.findall(r"function\s+([A-Za-z_$][\w$]*)", script))
+    defined |= set(re.findall(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=", script))
+    # Parameter names are callable inside their function (a formatter passed
+    # in, for instance), so they count as defined.
+    for params in re.findall(r"function\s*[\w$]*\s*\(([^)]*)\)", script):
+        for param in params.split(","):
+            name = param.split("=")[0].strip()
+            if name.isidentifier():
+                defined.add(name)
+
+    builtin = {
+        "fetch", "setInterval", "setTimeout", "parseInt", "parseFloat",
+        "isNaN", "String", "Number", "Math", "Object", "Array", "Promise",
+        "Date", "JSON", "console", "document", "window", "escape",
+        # Keywords that the call-site regex cannot tell from a call.
+        "if", "for", "while", "switch", "catch", "return", "typeof",
+        "await", "of", "in", "new", "else", "var", "let", "const",
+    }
+    called = set(re.findall(r"\b([a-z][\w$]*)\s*\(", script)) - builtin
+
+    # Only flag names that look like our own helpers: defined nowhere and
+    # not a method call (those are preceded by a dot, excluded by \b above).
+    suspects = {
+        name for name in called
+        if name not in defined and f".{name}(" not in script
+        and f"{name}:" not in script
+    }
+    assert not suspects, f"called but never defined: {sorted(suspects)}"
