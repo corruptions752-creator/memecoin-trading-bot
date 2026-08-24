@@ -16,7 +16,7 @@ import logging
 import threading
 import time
 
-from .config import Settings
+from .config import Settings, resolve_lp_policy
 from .reporting import summarize
 from .store import Store
 
@@ -85,8 +85,12 @@ def build_state(settings: Settings, store: Store) -> dict:
         for fill in fills[-40:]
     ][::-1]
 
+    activity = store.load_activity()
+
     return {
         "mode": settings.mode,
+        "activity": activity,
+        "lp_policy": resolve_lp_policy(settings),
         "generated_at": now,
         "bankroll": risk["cash_usd"] + risk["open_cost_usd"],
         "cash": risk["cash_usd"],
@@ -169,6 +173,21 @@ class _Handler(BaseHTTPRequestHandler):
 
     def log_message(self, *args) -> None:
         """Silence per-request logging; the trading log is what matters."""
+
+
+def default_port() -> int:
+    """The port to serve on.
+
+    Hosts like Replit hand the public port in ``PORT``; honouring it is what
+    makes the dashboard reachable from a phone rather than only locally.
+    """
+
+    import os
+
+    raw = os.getenv("PORT", "").strip()
+    if raw.isdigit():
+        return int(raw)
+    return 8080
 
 
 def serve(

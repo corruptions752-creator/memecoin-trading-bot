@@ -32,7 +32,7 @@ import logging
 import time
 
 from .chain import SolanaRpcClient
-from .config import Settings
+from .config import LP_SUBSTITUTE, Settings, resolve_lp_policy
 from .jupiter import JupiterClient
 from .safety import TokenAuthority
 
@@ -142,7 +142,7 @@ def apply_lp_policy(
     the field is left unknown and the trade is refused.
     """
 
-    if settings.lp_lock_policy != LP_POLICY_SUBSTITUTE:
+    if resolve_lp_policy(settings) != LP_SUBSTITUTE:
         return authority
     if authority.lp_locked_or_burned is not None:
         return authority

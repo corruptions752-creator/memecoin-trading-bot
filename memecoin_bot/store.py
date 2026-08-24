@@ -5,6 +5,7 @@ on a free host that sleeps is a routine event, not an edge case.
 """
 
 from pathlib import Path
+import json
 import sqlite3
 
 from .models import ExitReason, Fill, Position, Side
@@ -57,6 +58,17 @@ CREATE TABLE IF NOT EXISTS risk_state (
     halted              INTEGER NOT NULL DEFAULT 0,
     halt_reason         TEXT    NOT NULL DEFAULT '',
     updated_at          REAL    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS activity (
+    id             INTEGER PRIMARY KEY CHECK (id = 1),
+    at             REAL    NOT NULL,
+    scanned        INTEGER NOT NULL,
+    rejected       INTEGER NOT NULL,
+    candidates     INTEGER NOT NULL,
+    entered        INTEGER NOT NULL,
+    rejections     TEXT    NOT NULL DEFAULT '{}',
+    skipped_reason TEXT    NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS mint_blocks (
@@ -230,6 +242,52 @@ class Store:
             )
             for row in rows
         ]
+
+    # --- Scan activity ----------------------------------------------------
+
+    def save_activity(
+        self, *, at: float, scanned: int, rejected: int, candidates: int,
+        entered: int, rejections: dict, skipped_reason: str = "",
+    ) -> None:
+        """Record the most recent scan, overwriting the previous one."""
+
+        self._connection.execute(
+            """
+            INSERT INTO activity (
+                id, at, scanned, rejected, candidates, entered, rejections,
+                skipped_reason
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                at = excluded.at, scanned = excluded.scanned,
+                rejected = excluded.rejected, candidates = excluded.candidates,
+                entered = excluded.entered, rejections = excluded.rejections,
+                skipped_reason = excluded.skipped_reason
+            """,
+            (
+                at, scanned, rejected, candidates, entered,
+                json.dumps(rejections), skipped_reason,
+            ),
+        )
+        self._connection.commit()
+
+    def load_activity(self) -> dict | None:
+        """The most recent scan, or ``None`` before the first one."""
+
+        row = self._connection.execute(
+            "SELECT * FROM activity WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            rejections = json.loads(row["rejections"])
+        except (TypeError, ValueError):
+            rejections = {}
+        return {
+            "at": row["at"], "scanned": row["scanned"],
+            "rejected": row["rejected"], "candidates": row["candidates"],
+            "entered": row["entered"], "rejections": rejections,
+            "skipped_reason": row["skipped_reason"],
+        }
 
     # --- Risk state -------------------------------------------------------
 

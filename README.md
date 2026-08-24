@@ -1,5 +1,7 @@
 # Meme coin trading bot
 
+**Setting it up on a phone: see [SETUP.md](SETUP.md).**
+
 A risk-managed Solana meme coin trading bot. It ships in **paper mode**: it
 runs the full strategy against live market data and places simulated orders,
 so the approach can be measured before any money is exposed.
@@ -200,11 +202,14 @@ and showing supply is burned or held by a known locker — and that differs per
 DEX. It cannot be done honestly from pair data, so it is reported as `None`
 rather than guessed. Two policies:
 
-- `MEMEBOT_LP_POLICY=strict` (default) — unknown LP blocks the trade. Correct,
-  and rejects most tokens.
+- `MEMEBOT_LP_POLICY=auto` (default) — `substitute` in paper, `strict` in live.
+- `MEMEBOT_LP_POLICY=strict` — unknown LP blocks the trade. Correct, and the
+  live default. It is **not** the paper default: since LP lock cannot be proven
+  from pair data, strict rejects every token, so a strict paper run makes zero
+  trades and looks identical to a broken bot.
 - `MEMEBOT_LP_POLICY=substitute` — accepts pool depth ($100k+) and age (6h+)
-  as a weaker proxy. **This is a real loosening of safety**, named explicitly
-  so nobody enables it by accident.
+  as a weaker proxy. **A real loosening of safety**, which is why live never
+  picks it on its own.
 
 Under `substitute`, the other four checks still apply in full — loosening the
 LP rule never launders a failure elsewhere.

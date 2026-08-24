@@ -1,0 +1,21 @@
+# Replit configuration.
+#
+# Pressing Run starts paper trading and serves the dashboard on the repl's
+# public URL, so it can be watched from a phone.
+
+run = "python3 -m memecoin_bot run"
+modules = ["python-3.11"]
+
+[deployment]
+run = ["python3", "-m", "memecoin_bot", "run"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[env]
+# Paper mode. Live trading is not implemented and additionally requires an
+# explicit acknowledgement, so this cannot spend real funds.
+MEMEBOT_MODE = "paper"
+MEMEBOT_BANKROLL_USD = "1000"

@@ -63,6 +63,36 @@ class UnknownAuthorityProvider:
         return TokenAuthority()
 
 
+# Maps a failure message to a short bucket, so the dashboard can show *why*
+# a scan produced nothing instead of just showing nothing.
+_CATEGORIES = (
+    ("liquidity", "liquidity"),
+    ("24h volume", "volume"),
+    ("pair only", "too new"),
+    ("pair age", "age unknown"),
+    ("past the momentum window", "too old"),
+    ("FDV", "valuation"),
+    ("wash trading", "wash traded"),
+    ("sell pressure", "sell pressure"),
+    ("no valid price", "no price"),
+    ("mint authority", "contract"),
+    ("freeze authority", "contract"),
+    ("LP not confirmed", "LP unproven"),
+    ("holder distribution", "contract"),
+    ("top holder", "whale"),
+    ("honeypot", "unsellable"),
+)
+
+
+def categorize(failure: str) -> str:
+    """Short bucket name for one failure message."""
+
+    for needle, label in _CATEGORIES:
+        if needle in failure:
+            return label
+    return "other"
+
+
 MAX_TOP_HOLDER_PCT = 0.20
 """A single wallet above this share can exit into the pool and end the trade."""
 

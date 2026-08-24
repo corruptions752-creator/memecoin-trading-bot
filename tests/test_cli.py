@@ -66,11 +66,26 @@ def test_verify_renders_a_tradable_verdict():
 
 
 def test_verify_shows_unknown_for_unverifiable_checks():
-    """UNKNOWN must be visible, not silently rendered as a pass."""
+    """UNKNOWN must be visible, not silently rendered as a pass.
 
-    code, output = run_verify(clean_authority(lp_locked_or_burned=None))
+    Pinned to strict, because paper mode now resolves to the substitute
+    policy -- otherwise depth and age would fill the LP slot in and there
+    would be no UNKNOWN left to display.
+    """
+
+    code, output = run_verify(
+        clean_authority(lp_locked_or_burned=None),
+        settings=Settings(lp_lock_policy="strict"),
+    )
     assert "UNKNOWN" in output
     assert "REJECTED" in output
+
+
+def test_verify_in_paper_mode_substitutes_the_lp_check():
+    """Paper defaults to substitute so the bot can actually trade."""
+
+    code, output = run_verify(clean_authority(lp_locked_or_burned=None))
+    assert "TRADABLE" in output
 
 
 def test_verify_lists_the_reasons_for_rejection():

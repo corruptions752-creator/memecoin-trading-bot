@@ -19,7 +19,10 @@ from .models import (
     TokenSnapshot,
 )
 from .risk import RiskManager
-from .safety import AuthorityProvider, UnknownAuthorityProvider, screen
+from .onchain import apply_lp_policy
+from .safety import (
+    AuthorityProvider, UnknownAuthorityProvider, categorize, screen,
+)
 from .store import Store
 from .strategy import decide_entry, decide_exit
 
@@ -37,6 +40,11 @@ class CycleReport:
     failed_entries: list[str] = field(default_factory=list)
     failed_exits: list[tuple[str, ExitReason]] = field(default_factory=list)
     skipped_reason: str = ""
+    rejections: dict[str, int] = field(default_factory=dict)
+    """Why candidates were turned down, bucketed. Lets the dashboard explain
+    a quiet scan instead of showing an empty screen."""
+    candidates: int = 0
+    """Passed every safety check and scored above the entry threshold."""
 
 
 class TradingEngine:
@@ -76,6 +84,7 @@ class TradingEngine:
             self.risk.persist(self.store, at)
         self._manage_positions(at, report)
         self._seek_entries(at, report)
+        self._record_activity(report, at)
         return report
 
     def run_forever(self) -> None:
@@ -187,6 +196,25 @@ class TradingEngine:
                 position.quantity, decision.note,
             )
 
+    def _record_activity(self, report: CycleReport, at: float) -> None:
+        """Save what this scan saw, so a quiet market is explicable."""
+
+        recorder = getattr(self.store, "save_activity", None)
+        if recorder is None:
+            return
+        try:
+            recorder(
+                at=at,
+                scanned=report.scanned,
+                rejected=report.rejected,
+                candidates=report.candidates,
+                entered=len(report.entered),
+                rejections=report.rejections,
+                skipped_reason=report.skipped_reason,
+            )
+        except Exception:  # noqa: BLE001 - reporting must never stop trading
+            log.debug("could not record activity", exc_info=True)
+
     def _charge_failed_transaction(
         self, error: ExecutionFailed, at: float
     ) -> None:
@@ -256,22 +284,32 @@ class TradingEngine:
                 )
                 continue
 
+            authority = apply_lp_policy(
+                self.authority.fetch(snapshot.mint), self.settings,
+                liquidity_usd=snapshot.liquidity_usd,
+                age_seconds=snapshot.age_seconds,
+            )
             verdict = screen(
-                snapshot,
-                self.settings,
-                self.authority.fetch(snapshot.mint),
+                snapshot, self.settings, authority,
                 require_contract_checks=self.enforce_contract_checks,
             )
             if not verdict.passed:
                 report.rejected += 1
+                bucket = categorize(verdict.failures[0])
+                report.rejections[bucket] = report.rejections.get(bucket, 0) + 1
                 log.debug("%s", verdict.describe())
                 continue
 
             entry = decide_entry(snapshot, self.settings)
             if entry is None:
                 report.rejected += 1
+                report.rejections["low score"] = (
+                    report.rejections.get("low score", 0) + 1
+                )
                 continue
             ranked.append(entry)
+
+        report.candidates = len(ranked)
 
         ranked.sort(key=lambda entry: entry.score, reverse=True)
 

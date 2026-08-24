@@ -12,6 +12,10 @@ import os
 PAPER = "paper"
 LIVE = "live"
 
+LP_AUTO = "auto"
+LP_STRICT = "strict"
+LP_SUBSTITUTE = "substitute"
+
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
@@ -116,9 +120,14 @@ class Settings:
     authority_cache_seconds: int = 900
     """A revoked authority cannot be un-revoked, so caching is safe."""
 
-    lp_lock_policy: str = "strict"
-    """``strict`` rejects tokens whose LP lock cannot be proven. ``substitute``
-    accepts depth and age as a weaker proxy -- a real loosening of safety."""
+    lp_lock_policy: str = "auto"
+    """``auto`` (default) uses ``substitute`` in paper mode and ``strict`` in
+    live mode. ``strict`` rejects any token whose LP lock cannot be proven --
+    correct, but since LP lock is not provable from pair data it rejects
+    *everything*, so a strict paper run makes no trades at all and teaches
+    nothing. ``substitute`` accepts pool depth and age as a weaker proxy.
+    Paper risks no money, so observing behaviour beats refusing to act;
+    live keeps the strict rule."""
     lp_substitute_min_liquidity_usd: float = 100_000.0
     lp_substitute_min_age_seconds: int = 6 * 3_600
 
@@ -136,6 +145,20 @@ class Settings:
     database_path: str = "memecoin_bot/data/trading.sqlite3"
     quote_mint: str = "So11111111111111111111111111111111111111112"
     """Wrapped SOL, the quote asset for Solana meme coin pairs."""
+
+
+def resolve_lp_policy(settings: "Settings") -> str:
+    """The LP policy actually in force, resolving ``auto`` by mode.
+
+    Strict is the correct rule and the live default. It is not the paper
+    default because LP lock cannot be proven from pair data, so strict paper
+    trading makes zero trades -- which looks identical to a broken bot and
+    teaches nothing about the strategy.
+    """
+
+    if settings.lp_lock_policy != LP_AUTO:
+        return settings.lp_lock_policy
+    return LP_STRICT if settings.mode == LIVE else LP_SUBSTITUTE
 
 
 def _float(name: str, default: float, *, minimum: float = 0.0,
@@ -220,8 +243,8 @@ def load_settings() -> Settings:
         rpc_endpoint=os.getenv(
             "MEMEBOT_RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"
         ).strip() or "https://api.mainnet-beta.solana.com",
-        lp_lock_policy=os.getenv("MEMEBOT_LP_POLICY", "strict").strip().lower()
-        or "strict",
+        lp_lock_policy=os.getenv("MEMEBOT_LP_POLICY", "auto").strip().lower()
+        or "auto",
         reentry_cooldown_seconds=_int(
             "MEMEBOT_REENTRY_COOLDOWN_SECONDS", 6 * 3_600, minimum=0
         ),
@@ -233,8 +256,8 @@ def load_settings() -> Settings:
 
     if settings.take_profit_fraction >= 1.0:
         raise RuntimeError("take_profit_fraction must leave a runner behind.")
-    if settings.lp_lock_policy not in ("strict", "substitute"):
+    if settings.lp_lock_policy not in ("auto", "strict", "substitute"):
         raise RuntimeError(
-            "MEMEBOT_LP_POLICY must be 'strict' or 'substitute'."
+            "MEMEBOT_LP_POLICY must be 'auto', 'strict' or 'substitute'."
         )
     return settings

@@ -56,8 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument(
-        "--port", type=int, default=8080,
-        help="port for the dashboard (default 8080)",
+        "--port", type=int, default=None,
+        help="dashboard port (default: $PORT, else 8080)",
     )
     parser.add_argument(
         "--no-dashboard", action="store_true",
@@ -67,6 +67,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # The offline commands print a report; per-trade logs would bury it.
     quiet = args.command in ("simulate", "sweep") and not args.verbose
+    from .dashboard import default_port
+    if args.port is None:
+        args.port = default_port()
+
     _configure_logging(args.verbose)
     if quiet:
         logging.getLogger("memecoin_bot").setLevel(logging.WARNING)
@@ -79,7 +83,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if settings.mode == PAPER:
+        from .config import resolve_lp_policy
         log.info("PAPER MODE — no real funds are at risk.")
+        if resolve_lp_policy(settings) == "substitute":
+            log.info(
+                "LP-lock check relaxed to depth+age so paper trading can "
+                "actually run; live mode enforces it strictly."
+            )
 
     store = Store(settings.database_path)
     market = DexScreenerClient(settings)
