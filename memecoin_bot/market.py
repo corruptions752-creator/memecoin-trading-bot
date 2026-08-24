@@ -77,11 +77,23 @@ class DexScreenerClient:
         return list(collected.values())
 
     _SEARCH_TERMS = (
+        # Quote assets and venues: the structural floor of coverage.
         "SOL", "USDC", "SOL/USDC", "WSOL",
         "raydium", "pumpfun", "meteora", "orca",
+        # Name fragments common to traded meme coins. A live scan found 65 of
+        # 172 discovered tokens below $10k of liquidity, because the
+        # promotion feeds surface whatever someone paid to list rather than
+        # whatever is being traded. Searching for the words that appear in
+        # tokens people actually buy biases discovery toward pools deep
+        # enough to trade -- which is the population the screen is built for.
+        "bonk", "wif", "pepe", "popcat", "mew", "bome",
+        "dog", "cat", "moon", "inu", "shib", "elon",
+        "trump", "ai", "agent", "meme", "coin", "pump",
+        "baby", "king", "gold", "chad", "wojak", "frog",
     )
-    """Searches return a stable slice, so on their own they surface the same
-    tokens every cycle. They are the floor of discovery, not the whole of it."""
+    """Each term returns a different slice; together they are the breadth of
+    discovery. A search alone returns the same tokens each cycle, which is
+    why the changing feeds below matter too."""
 
     _DISCOVERY_FEEDS = (
         "/token-boosts/latest/v1",

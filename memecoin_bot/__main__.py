@@ -18,6 +18,7 @@ Usage::
 import argparse
 import logging
 import sys
+import time
 
 from .broker import build_broker
 from .config import PAPER, load_settings
@@ -68,6 +69,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--once", action="store_true",
         help="run a single trading cycle and exit (for scheduled runners)",
+    )
+    parser.add_argument(
+        "--minutes", type=float, default=0.0,
+        help=(
+            "keep cycling for this many minutes, then exit. Lets one "
+            "scheduled invocation do many cycles instead of one."
+        ),
     )
     parser.add_argument(
         "--out", default="docs/state.json",
@@ -157,16 +165,37 @@ def main(argv: list[str] | None = None) -> int:
         log.info("closed %d position(s)", closed)
         return 0
 
-    if args.once:
-        # One cycle, then exit. This is how a scheduled runner (GitHub
-        # Actions, cron) drives the bot without a long-lived process.
-        report = engine.run_cycle()
-        log.info(
-            "cycle: scanned %d, candidates %d, entered %s, exited %s",
-            report.scanned, report.candidates, report.entered or "none",
-            [f"{s}:{r.value}" for s, r in report.exited] or "none",
-        )
-        _export(settings, store, args.out, log)
+    if args.once or args.minutes > 0:
+        # A scheduled runner has no long-lived process, so the loop lives
+        # inside one invocation. GitHub honours perhaps one scheduled firing
+        # an hour however often it is asked, so the way to cycle often is to
+        # cycle many times per firing rather than to beg for more firings.
+        deadline = time.time() + args.minutes * 60.0
+        cycles = 0
+        while True:
+            started = time.time()
+            report = engine.run_cycle()
+            cycles += 1
+            log.info(
+                "cycle %d: seen %d, shortlist %d, verified %d, "
+                "entered %s, exited %s",
+                cycles, report.scanned, report.shortlisted, report.candidates,
+                report.entered or "none",
+                [f"{s}:{r.value}" for s, r in report.exited] or "none",
+            )
+            # Export every cycle, so a job killed mid-run still leaves the
+            # dashboard current rather than losing the whole window.
+            _export(settings, store, args.out, log)
+
+            if time.time() >= deadline:
+                break
+            elapsed = time.time() - started
+            remaining = deadline - time.time()
+            nap = max(0.0, min(settings.poll_seconds - elapsed, remaining))
+            if nap > 0:
+                time.sleep(nap)
+
+        log.info("completed %d cycle(s)", cycles)
         return 0
 
     if not args.no_dashboard:

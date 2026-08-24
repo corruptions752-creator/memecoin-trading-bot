@@ -45,7 +45,8 @@ jobs:
     # Run 4 was killed at 10 minutes by the one-request-per-token discovery.
     # Batching fixed the cause; this is headroom so a slow API cannot silently
     # cost a whole cycle.
-    timeout-minutes: 20
+    # Fifteen minutes of cycling plus checkout, commit and headroom.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -60,13 +61,17 @@ jobs:
           # Aggressive: 5% per trade, 8 slots, 35% stop, 3x target, 20% daily
           # cap. Sizing scales whatever edge exists -- in both directions.
           MEMEBOT_PROFILE: aggressive
+          MEMEBOT_POLL_SECONDS: "45"
           MEMEBOT_DB_PATH: state/trading.sqlite3
-          # A scan every 15 minutes cannot manage a 6-hour position properly,
-          # so hold longer and give the trade room rather than pretending the
-          # cadence is faster than it is.
-          MEMEBOT_MAX_HOLD_SECONDS: "86400"
-          MEMEBOT_STOP_LOSS_PCT: "0.25"
-        run: python -m memecoin_bot run --once --out docs/state.json
+          # Cycling every 45 seconds within a run, but runs themselves are
+          # roughly hourly, so a position can still go unwatched for a while.
+          # The hold stays long enough to survive those gaps.
+          MEMEBOT_MAX_HOLD_SECONDS: "43200"
+        # Cycle for fifteen minutes inside one invocation rather than once.
+        # GitHub honours roughly one scheduled firing an hour however often
+        # it is asked, so the way to cycle often is to do more per firing.
+        # At a 45-second poll that is ~20 cycles per run instead of 1.
+        run: python -m memecoin_bot run --minutes 15 --out docs/state.json
 
       - name: Commit state
         run: |
