@@ -78,7 +78,29 @@ class Settings:
 
     Set a value to re-enable it; the minimum age is unaffected either way.
     """
-    max_fdv_usd: float = 50_000_000.0
+    max_fdv_usd: float = 300_000_000.0
+    """Size ceiling, set by what the exit ladder needs rather than by taste.
+
+    The first target is 2x within the hold window. A token has to be small
+    enough that doubling is plausible, or the ladder never fires and the time
+    stop closes the position flat minus costs. Above roughly this size a
+    same-session double is rare enough not to plan around.
+
+    This was $50m, which rejected 36 of 171 tokens on a live scan. That was
+    tighter than the ladder requires, and -- being an absolute number -- it
+    was also the wrong shape: see ``max_fdv_to_liquidity``."""
+
+    max_fdv_to_liquidity: float = 300.0
+    """Supply overhang: token value in existence per dollar of exit depth.
+
+    This is the risk the absolute cap was reaching for and missing. A $30m
+    token sitting on $40k of liquidity carries 750x overhang and is far more
+    dangerous than a $900m token with $9m of liquidity at 100x -- yet a flat
+    $50m ceiling passed the first and rejected the second.
+
+    Ratio is the honest measure because it compares what could be sold
+    against what the pool could absorb. It is a real check, not a relaxation:
+    it rejects thin small-caps the old rule waved through."""
     min_buy_sell_ratio_5m: float = 0.8
     liquidity_exit_floor_pct: float = 0.5
     """Exit if pool liquidity falls this far below its level at entry."""

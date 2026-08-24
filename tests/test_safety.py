@@ -233,3 +233,61 @@ def test_every_failure_message_has_a_category():
 def settings_for_test():
     from memecoin_bot.config import Settings
     return Settings()
+
+
+# --- Supply overhang -----------------------------------------------------
+
+def test_a_thin_small_cap_is_rejected_for_overhang(settings):
+    """The flat cap waved this through: small enough to pass on size, but
+    750x more token value in existence than the pool could absorb."""
+
+    report = screen(
+        make_snapshot(fdv_usd=30_000_000.0, liquidity_usd=40_000.0),
+        settings, safe_authority(),
+    )
+    assert not report.passed
+    assert any("overhang" in r for r in report.failures)
+
+
+def test_a_large_token_on_a_deep_pool_passes(settings):
+    """Rejected by the flat cap despite carrying the same 100x overhang as
+    a small token the cap allowed."""
+
+    report = screen(
+        make_snapshot(fdv_usd=250_000_000.0, liquidity_usd=2_500_000.0),
+        settings, safe_authority(),
+    )
+    assert report.passed, report.failures
+
+
+def test_the_size_cap_still_applies(settings):
+    """Above it a same-session 2x is rare, so the exit ladder never fires."""
+
+    report = screen(
+        make_snapshot(fdv_usd=2_000_000_000.0, liquidity_usd=40_000_000.0),
+        settings, safe_authority(),
+    )
+    assert not report.passed
+    assert any("above cap" in r for r in report.failures)
+
+
+def test_overhang_is_bucketed_for_the_dashboard(settings):
+    from memecoin_bot.safety import categorize
+
+    report = screen(
+        make_snapshot(fdv_usd=30_000_000.0, liquidity_usd=40_000.0),
+        settings, safe_authority(),
+    )
+    overhang = [r for r in report.failures if "overhang" in r]
+    assert categorize(overhang[0]) == "overhang"
+
+
+def test_the_overhang_check_can_be_disabled():
+    from memecoin_bot.config import Settings
+
+    off = Settings(max_fdv_to_liquidity=0.0)
+    report = screen(
+        make_snapshot(fdv_usd=30_000_000.0, liquidity_usd=40_000.0),
+        off, safe_authority(),
+    )
+    assert report.passed, report.failures

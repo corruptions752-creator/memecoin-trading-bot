@@ -66,6 +66,9 @@ class UnknownAuthorityProvider:
 # Maps a failure message to a short bucket, so the dashboard can show *why*
 # a scan produced nothing instead of just showing nothing.
 _CATEGORIES = (
+    # Order matters: the first match wins, so more specific phrases must
+    # come before generic words they might contain.
+    ("supply overhang", "overhang"),
     ("liquidity", "liquidity"),
     ("24h volume", "volume"),
     ("pair only", "too new"),
@@ -151,6 +154,17 @@ def screen(
         failures.append(
             f"FDV ${snapshot.fdv_usd:,.0f} above cap ${settings.max_fdv_usd:,.0f}"
         )
+
+    # Supply overhang: how much token value exists per dollar of exit depth.
+    # A small token on a thin pool is more dangerous than a large one on a
+    # deep pool, which an absolute cap cannot express.
+    if settings.max_fdv_to_liquidity > 0 and snapshot.liquidity_usd > 0:
+        overhang = snapshot.fdv_usd / snapshot.liquidity_usd
+        if overhang > settings.max_fdv_to_liquidity:
+            failures.append(
+                f"supply overhang {overhang:,.0f}x pool depth, above "
+                f"{settings.max_fdv_to_liquidity:,.0f}x"
+            )
 
     # A pool with far more volume than depth is usually wash traded.
     if snapshot.volume_to_liquidity_24h > 50:
