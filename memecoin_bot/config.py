@@ -31,6 +31,9 @@ PROFILES = {
         "min_entry_score": 0.55,
         "min_liquidity_usd": 25_000.0,
         "lp_substitute_min_liquidity_usd": 100_000.0,
+        "min_volume_24h_usd": 50_000.0,
+        "min_buy_sell_ratio_5m": 0.8,
+        "max_momentum_5m_pct": 0.60,
     },
     "balanced": {
         "risk_fraction_per_trade": 0.03,
@@ -42,6 +45,9 @@ PROFILES = {
         "min_entry_score": 0.45,
         "min_liquidity_usd": 15_000.0,
         "lp_substitute_min_liquidity_usd": 45_000.0,
+        "min_volume_24h_usd": 20_000.0,
+        "min_buy_sell_ratio_5m": 0.7,
+        "max_momentum_5m_pct": 0.90,
     },
     "aggressive": {
         "risk_fraction_per_trade": 0.05,
@@ -53,6 +59,9 @@ PROFILES = {
         "min_entry_score": 0.35,
         "min_liquidity_usd": 10_000.0,
         "lp_substitute_min_liquidity_usd": 25_000.0,
+        "min_volume_24h_usd": 8_000.0,
+        "min_buy_sell_ratio_5m": 0.6,
+        "max_momentum_5m_pct": 1.50,
     },
 }
 
@@ -104,6 +113,10 @@ class Settings:
     min_liquidity_usd: float = 25_000.0
     max_liquidity_usd: float = 5_000_000.0
     min_volume_24h_usd: float = 50_000.0
+    """Turnover floor. It must scale with the liquidity floor: a pool holding
+    $10k essentially never turns over $50k a day, so a posture that lowered
+    one without the other opened a band it could never trade through. A live
+    scan rejected 121 of 338 tokens here for exactly that reason."""
     min_pair_age_seconds: int = 30 * 60
     """Refuse tokens younger than this. The first minutes are where the
     sniper bots and the instant rugs live."""
@@ -365,6 +378,18 @@ def load_settings() -> Settings:
         min_liquidity_usd=_float(
             "MEMEBOT_MIN_LIQUIDITY_USD", profile["min_liquidity_usd"],
             minimum=0.0,
+        ),
+        min_volume_24h_usd=_float(
+            "MEMEBOT_MIN_VOLUME_24H_USD", profile["min_volume_24h_usd"],
+            minimum=0.0,
+        ),
+        min_buy_sell_ratio_5m=_float(
+            "MEMEBOT_MIN_BUY_SELL_RATIO", profile["min_buy_sell_ratio_5m"],
+            minimum=0.0,
+        ),
+        max_momentum_5m_pct=_float(
+            "MEMEBOT_MAX_MOMENTUM_5M", profile["max_momentum_5m_pct"],
+            minimum=0.01,
         ),
         lp_substitute_min_liquidity_usd=_float(
             "MEMEBOT_LP_SUBSTITUTE_MIN_LIQUIDITY_USD",

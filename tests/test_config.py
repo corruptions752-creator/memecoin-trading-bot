@@ -105,3 +105,69 @@ def test_the_hard_size_cap_survives_any_profile(monkeypatch):
     monkeypatch.setenv("MEMEBOT_RISK_FRACTION", "0.9")
     with pytest.raises(RuntimeError, match="at most"):
         load_settings()
+
+
+# --- Profile coherence ---------------------------------------------------
+
+def test_every_profile_is_internally_consistent(monkeypatch):
+    """A posture that lowers one floor without the others opens a band it
+    can never trade through.
+
+    This was not hypothetical twice over: the LP substitute stayed at $100k
+    against a $10k liquidity floor, and then the volume floor stayed at $50k
+    against the same floor, rejecting 121 of 338 tokens on a live scan. Both
+    were invisible until a scan was read closely.
+    """
+
+    from memecoin_bot.config import PROFILES
+
+    for name in PROFILES:
+        monkeypatch.setenv("MEMEBOT_PROFILE", name)
+        s = load_settings()
+
+        assert s.lp_substitute_min_liquidity_usd >= s.min_liquidity_usd, (
+            f"{name}: LP substitute below the liquidity floor"
+        )
+        assert s.min_volume_24h_usd <= s.min_liquidity_usd * 3, (
+            f"{name}: volume floor implausible for its liquidity floor"
+        )
+        assert s.min_momentum_5m_pct < s.max_momentum_5m_pct, (
+            f"{name}: empty momentum band"
+        )
+        assert 0.0 < s.min_entry_score < 1.0, f"{name}: unreachable score"
+
+
+def test_no_profile_can_overcommit_the_bankroll(monkeypatch):
+    from memecoin_bot.config import PROFILES
+
+    for name in PROFILES:
+        monkeypatch.setenv("MEMEBOT_PROFILE", name)
+        s = load_settings()
+        committed = s.risk_fraction_per_trade * s.max_open_positions
+        assert committed <= 1.0, f"{name}: {committed:.0%} of bankroll at risk"
+
+
+def test_the_daily_limit_allows_at_least_one_full_loss(monkeypatch):
+    """A breaker that trips before a single stop-out completes would halt
+    trading on the first losing trade."""
+
+    from memecoin_bot.config import PROFILES
+
+    for name in PROFILES:
+        monkeypatch.setenv("MEMEBOT_PROFILE", name)
+        s = load_settings()
+        one_stop = s.risk_fraction_per_trade * s.stop_loss_pct
+        assert s.daily_loss_limit_pct > one_stop, name
+
+
+def test_every_profile_defines_every_key(monkeypatch):
+    """A key present in one profile and missing from another would silently
+    fall back to a default that does not match the posture."""
+
+    from memecoin_bot.config import PROFILES
+
+    keysets = [set(v) for v in PROFILES.values()]
+    assert all(k == keysets[0] for k in keysets), (
+        f"profiles define different keys: "
+        f"{[sorted(k ^ keysets[0]) for k in keysets]}"
+    )
