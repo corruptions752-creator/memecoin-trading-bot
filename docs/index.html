@@ -313,19 +313,36 @@ h1 {
 .fill.bad { background: var(--down); }
 
 /* Expanded card detail */
-.detail { margin-top: 9px; border-top: 1px solid var(--edge-soft); padding-top: 8px; }
+/* Selected-token detail, as a strip under the grid. Inside a card it
+   stretched the whole grid row, leaving its neighbours as tall empty boxes,
+   and squeezed each risk phrase into a five-line stack. */
+.detail {
+  margin-top: 9px; border: 1px solid var(--neon); border-radius: var(--r);
+  padding: 12px 13px; background: var(--panel);
+}
+.dhead {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.dhead .sym { font-size: 15px; }
+.dclose { margin-left: auto; }
+.factors {
+  display: grid; gap: 0 24px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
 .factor {
-  display: flex; gap: 7px; align-items: baseline; flex-wrap: wrap;
-  font-size: 10.5px; padding: 2px 0;
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 11px; padding: 3px 0; min-width: 0;
 }
 .fmark { width: 11px; flex: none; text-align: center; font-weight: 700; }
 .fmark.ok { color: var(--up); }
 .fmark.warn { color: var(--warn); }
 .fmark.danger { color: var(--down); }
 .fmark.unknown { color: var(--ink-3); }
-.fname { color: var(--ink-2); flex: none; }
-.fdetail { color: var(--ink-3); min-width: 0; flex: 1 1 130px; }
+.fname { color: var(--ink-2); flex: none; min-width: 138px; }
+.fdetail { color: var(--ink-3); min-width: 0; }
 .why { margin: 7px 0 0; padding-left: 15px; font-size: 10.5px; color: var(--ink-2); }
+.dcols { display: grid; gap: 10px 22px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 10px; }
 .why li { margin: 1px 0; }
 
 /* --- AI signals --- */
@@ -424,7 +441,7 @@ tr:last-child td { border-bottom: 0; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.num:last-child, th.num:last-child { padding-right: 0; }
 .scroll { overflow-x: auto; }
-.scroll table { min-width: 520px; }
+.scroll table { min-width: 460px; }
 .side { font-weight: 700; font-size: 9px; letter-spacing: .1em; }
 .side { margin-right: 6px; }
 .side.buy { color: var(--up); }
@@ -564,6 +581,7 @@ foot, .foot {
     </div>
     <div class="pbody">
       <div class="cards" id="cards"></div>
+      <div id="detail"></div>
       <button class="iconbtn" id="more" type="button" hidden></button>
       <div class="note" id="cards-note"></div>
     </div>
@@ -839,7 +857,7 @@ function renderTicker(state) {
 
 // Which cards are expanded, by mint. Kept outside the render so a refresh
 // does not fold a card the reader just opened.
-const expanded = new Set();
+let selected = null;
 let lastScanAt = null;
 let showAll = false;
 const CARDS_SHOWN = 8;
@@ -863,7 +881,7 @@ function factorMark(level) {
 }
 
 function cardMarkup(token) {
-  const open = expanded.has(token.mint);
+  const open = selected === token.mint;
   const change = token.change_24h === null || token.change_24h === undefined
     ? token.change_5m : token.change_24h;
   const badges = (token.badges || []).map(b =>
@@ -872,27 +890,6 @@ function cardMarkup(token) {
 
   const flow = token.buys_5m + token.sells_5m;
   const buyShare = flow ? token.buys_5m / flow : 0;
-
-  let detail = "";
-  if (open) {
-    const factors = (token.risk_factors || []).map(f =>
-      `<div class="factor"><span class="fmark ${escapeHtml(f.level)}">` +
-      `${factorMark(f.level)}</span><span class="fname">` +
-      `${escapeHtml(f.name)}</span><span class="fdetail">` +
-      `${escapeHtml(f.detail)}</span></div>`).join("");
-    const why = (token.why || []).length
-      ? `<ul class="why">` + token.why.map(w =>
-          `<li>${escapeHtml(w)}</li>`).join("") + `</ul>`
-      : `<div class="note">Scored zero: nothing in the entry model fired.</div>`;
-    const blocked = (token.blocked_by || []).length
-      ? `<div class="note neg">Blocked: ` +
-        escapeHtml(token.blocked_by.join("; ")) + `</div>`
-      : "";
-    detail = `<div class="detail">${factors}${why}${blocked}` +
-      `<div class="note">Age ${escapeHtml(heldFor(token.age_hours))} · ` +
-      `5m volume ${escapeHtml(compact(token.volume_5m))} · ` +
-      `1h ${escapeHtml(pct(token.change_1h))}</div></div>`;
-  }
 
   const cls = token.signal === "HELD" ? "held"
     : token.signal === "BUY" ? "buy"
@@ -937,8 +934,46 @@ function cardMarkup(token) {
         Math.round(buyShare * 100))}</div>
     </div>
     </div>
-    ${detail}
   </button>`;
+}
+
+// The full read for the selected token, rendered under the grid where the
+// risk phrases have room to sit on one line each.
+function detailMarkup(token) {
+  const factors = (token.risk_factors || []).map(f =>
+    `<div class="factor"><span class="fmark ${escapeHtml(f.level)}">` +
+    `${factorMark(f.level)}</span><span class="fname">` +
+    `${escapeHtml(f.name)}</span><span class="fdetail">` +
+    `${escapeHtml(f.detail)}</span></div>`).join("");
+
+  const why = (token.why || []).length
+    ? `<div><div class="label">What the model saw</div>` +
+      `<ul class="why">` + token.why.map(w =>
+        `<li>${escapeHtml(w)}</li>`).join("") + `</ul></div>`
+    : `<div><div class="label">What the model saw</div>` +
+      `<div class="note">Nothing fired: it scored zero.</div></div>`;
+
+  const blocked = (token.blocked_by || []).length
+    ? `<div><div class="label">Why it was turned down</div>` +
+      `<ul class="why">` + token.blocked_by.map(b =>
+        `<li>${escapeHtml(b)}</li>`).join("") + `</ul></div>`
+    : "";
+
+  return `<div class="detail">
+    <div class="dhead">
+      <span class="verdict ${escapeHtml(token.signal)}">${escapeHtml(token.signal)}</span>
+      <span class="sym">${escapeHtml(token.symbol)}</span>
+      <span class="muted">$${escapeHtml(price(token.price))} ·
+        ${escapeHtml(compact(token.liquidity))} pool ·
+        ${escapeHtml(compact(token.fdv))} cap ·
+        age ${escapeHtml(heldFor(token.age_hours))} ·
+        1h ${escapeHtml(pct(token.change_1h))} ·
+        5m volume ${escapeHtml(compact(token.volume_5m))}</span>
+      <button class="iconbtn dclose" type="button" id="dclose">CLOSE</button>
+    </div>
+    <div class="factors">${factors}</div>
+    <div class="dcols">${why}${blocked}</div>
+  </div>`;
 }
 
 function renderCards(state, force) {
@@ -954,6 +989,8 @@ function renderCards(state, force) {
   if (!tokens.length) {
     container.innerHTML = `<div class="empty">Scanner has not published a
       cycle yet. Token reads appear as soon as the next scan finishes.</div>`;
+    $("detail").innerHTML = "";
+    $("more").hidden = true;
     $("scan-meta").textContent = "";
     $("cards-note").textContent = "";
     return;
@@ -962,6 +999,11 @@ function renderCards(state, force) {
   // the scanner, and the tail is the weakest reads anyway.
   const shown = showAll ? tokens : tokens.slice(0, CARDS_SHOWN);
   container.innerHTML = shown.map(cardMarkup).join("");
+
+  const token = tokens.filter(t => t.mint === selected)[0];
+  // A token that dropped out of the feed cannot keep a stale card open.
+  if (selected && !token) selected = null;
+  $("detail").innerHTML = token ? detailMarkup(token) : "";
 
   const more = $("more");
   more.hidden = tokens.length <= CARDS_SHOWN;
@@ -989,7 +1031,13 @@ $("cards").addEventListener("click", event => {
   const card = event.target.closest(".card");
   if (!card) return;
   const mint = card.getAttribute("data-mint");
-  if (expanded.has(mint)) expanded.delete(mint); else expanded.add(mint);
+  selected = selected === mint ? null : mint;
+  renderCards(lastState, true);
+});
+
+$("detail").addEventListener("click", event => {
+  if (!event.target.closest("#dclose")) return;
+  selected = null;
   renderCards(lastState, true);
 });
 
@@ -1264,6 +1312,10 @@ function renderClosed(closed) {
   </tr>`).join("") + `</tbody></table>`;
 }
 
+// Each order takes two lines now that its reason sits under it, so the log
+// shows fewer of them rather than running twice as long as the page.
+const FILLS_SHOWN = 20;
+
 function renderFills(fills) {
   const container = $("fills");
   if (!fills.length) {
@@ -1272,14 +1324,14 @@ function renderFills(fills) {
   }
   container.innerHTML = `<table class="rtable"><thead><tr>
     <th>Order</th><th class="num">Price</th>
-    <th class="num">Size</th><th class="num">Fee</th><th>Why</th>
-  </tr></thead><tbody>` + fills.map(f => `<tr>
+    <th class="num">Size</th><th class="num">Fee</th>
+  </tr></thead><tbody>` + fills.slice(0, FILLS_SHOWN).map(f => `<tr>
     <td><span class="side ${escapeHtml(f.side)}">${escapeHtml(f.side.toUpperCase())}</span>
-      <b>${escapeHtml(f.symbol)}</b></td>
+      <b>${escapeHtml(f.symbol)}</b>
+      <div class="muted">${escapeHtml(titleCase(f.reason))}</div></td>
     <td class="num" data-l="Price">$${escapeHtml(price(f.price))}</td>
     <td class="num" data-l="Size">${escapeHtml(money(f.usd))}</td>
     <td class="num muted" data-l="Fee">${escapeHtml(money(f.fee))}</td>
-    <td class="muted" data-l="Why">${escapeHtml(titleCase(f.reason))}</td>
   </tr>`).join("") + `</tbody></table>`;
 }
 
@@ -1416,13 +1468,13 @@ function drawChart(equity, start) {
     const px = x(i), py = y(equity[i]);
     context.beginPath();
     if (won) {
-      context.moveTo(px, py - 3.4);
-      context.lineTo(px + 3, py + 2.2);
-      context.lineTo(px - 3, py + 2.2);
+      context.moveTo(px, py - 4.4);
+      context.lineTo(px + 3.8, py + 2.8);
+      context.lineTo(px - 3.8, py + 2.8);
     } else {
-      context.moveTo(px, py + 3.4);
-      context.lineTo(px + 3, py - 2.2);
-      context.lineTo(px - 3, py - 2.2);
+      context.moveTo(px, py + 4.4);
+      context.lineTo(px + 3.8, py - 2.8);
+      context.lineTo(px - 3.8, py - 2.8);
     }
     context.closePath();
     context.fill();
@@ -1602,7 +1654,7 @@ function paint(state) {
     ? `${money(stats.fees_usd + stats.slippage_usd)} paid in fees and slippage`
     : "";
   $("fills-meta").textContent = state.recent_fills.length
-    ? `${state.recent_fills.length} most recent` : "";
+    ? `${Math.min(state.recent_fills.length, FILLS_SHOWN)} most recent` : "";
 
   renderStrip(state);
   renderProgress(state);
