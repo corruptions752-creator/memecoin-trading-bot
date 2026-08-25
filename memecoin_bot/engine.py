@@ -372,6 +372,27 @@ class TradingEngine:
         except Exception:  # noqa: BLE001 - reporting must never stop trading
             log.debug("could not record scan tokens", exc_info=True)
 
+    def _assess(self, snapshot: TokenSnapshot, **kwargs) -> dict | None:
+        """Assess a token for the display, never at the cost of a cycle.
+
+        This now runs on every token the scan sees, including ones the
+        market screen threw out for being malformed. A display read is not
+        worth a failed trading cycle, so a bad one is dropped instead.
+        """
+
+        try:
+            return assess(snapshot, self.settings, **kwargs)
+        except Exception:  # noqa: BLE001 - reporting must never stop trading
+            log.debug("could not assess %s", snapshot.mint, exc_info=True)
+            return None
+
+    @staticmethod
+    def _append(target: list, card: dict | None) -> None:
+        """Add a card unless assessing it failed."""
+
+        if card is not None:
+            target.append(card)
+
     def _assess_held(self) -> list[dict]:
         """Scanner reads for the tokens the bot is currently holding."""
 
@@ -380,9 +401,8 @@ class TradingEngine:
             snapshot = self._held_snapshots.get(position.mint)
             if snapshot is None:
                 continue
-            out.append(assess(
-                snapshot, self.settings,
-                position_size_usd=position.cost_usd, held=True,
+            self._append(out, self._assess(
+                snapshot, position_size_usd=position.cost_usd, held=True,
             ))
         return out
 
@@ -467,8 +487,8 @@ class TradingEngine:
             if not market_verdict.passed:
                 report.rejected += 1
                 self._count_rejection(report, market_verdict.failures[0])
-                watched.append(assess(
-                    snapshot, self.settings, verdict=market_verdict,
+                self._append(watched, self._assess(
+                    snapshot, verdict=market_verdict,
                     position_size_usd=size_usd,
                 ))
                 continue
@@ -479,9 +499,8 @@ class TradingEngine:
                 report.rejections["low score"] = (
                     report.rejections.get("low score", 0) + 1
                 )
-                watched.append(assess(
-                    snapshot, self.settings,
-                    position_size_usd=size_usd,
+                self._append(watched, self._assess(
+                    snapshot, position_size_usd=size_usd,
                 ))
                 continue
             shortlist.append(entry)
@@ -498,9 +517,8 @@ class TradingEngine:
                 # No slot to fill, so no reason to spend a rate-limited
                 # lookup. The card reports the contract checks as unchecked,
                 # which is what they are.
-                verified.append(assess(
-                    snapshot, self.settings,
-                    position_size_usd=size_usd,
+                self._append(verified, self._assess(
+                    snapshot, position_size_usd=size_usd,
                 ))
                 continue
 
@@ -513,8 +531,8 @@ class TradingEngine:
                 snapshot, self.settings, authority,
                 require_contract_checks=self.enforce_contract_checks,
             )
-            verified.append(assess(
-                snapshot, self.settings, authority, verdict,
+            self._append(verified, self._assess(
+                snapshot, authority=authority, verdict=verdict,
                 position_size_usd=size_usd,
             ))
 

@@ -884,3 +884,27 @@ def test_a_halt_already_in_force_at_startup_is_not_announced():
     )
     engine.run_cycle(NOW + 60)
     assert not [e for e in store.recent_events() if e["kind"] == "halt"]
+
+
+def test_a_token_that_cannot_be_assessed_does_not_stop_the_cycle():
+    """The scan reads every token it sees, malformed ones included. A
+    display read is not worth a failed trading cycle."""
+
+    import memecoin_bot.engine as engine_module
+
+    engine, _, store = build_engine([
+        make_snapshot(mint="A" * 32, symbol="ALPHA"),
+    ])
+
+    def explode(*args, **kwargs):
+        raise ValueError("bad snapshot")
+
+    original = engine_module.assess
+    engine_module.assess = explode
+    try:
+        report = engine.run_cycle(NOW)
+    finally:
+        engine_module.assess = original
+
+    assert report.entered == ["ALPHA"], "trading must survive a display failure"
+    assert store.scan_tokens() == []
