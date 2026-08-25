@@ -762,3 +762,87 @@ def test_an_older_database_reports_verification_as_having_run(tmp_path):
         rejections={}, shortlisted=5,
     )
     assert build_state(settings, store)["activity"]["verification_ran"] is True
+
+
+def _script_functions(script):
+    """Split a script into (name, body) for each top-level function.
+
+    Brace counting survives template literals because the braces in `${...}`
+    are themselves balanced.
+    """
+
+    import re
+
+    out = []
+    for match in re.finditer(r"function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)\s*\{", script):
+        depth, i = 1, match.end()
+        while i < len(script) and depth:
+            if script[i] == "{":
+                depth += 1
+            elif script[i] == "}":
+                depth -= 1
+            i += 1
+        out.append((match.group(1), match.group(2),
+                    script[match.end():i - 1], match.start(), i))
+    return out
+
+
+def test_the_page_has_no_undefined_template_variables():
+    """The helper guard checks called names, so a splice that removes a
+    `const` leaves a page that parses and dies on first render. It happened:
+    a sparkline rewrite deleted `entries`, the caption below still read it,
+    and the whole suite stayed green -- a second `entries` in another
+    function was enough to fool a scope-blind check.
+
+    So this one is per-function: a name read inside a function's template
+    interpolations must be bound in that function, in its parameters, or at
+    module scope.
+    """
+
+    import re
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    script = page[page.index("<script>"):page.index("</script>")]
+
+    functions = _script_functions(script)
+    assert len(functions) > 15, "the function splitter stopped working"
+
+    def bindings(text):
+        found = set(re.findall(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)", text))
+        found |= set(re.findall(r"function\s+([A-Za-z_$][\w$]*)", text))
+        found |= set(re.findall(r"(?:^|[^\w$])([A-Za-z_$][\w$]*)\s*=>", text))
+        for params in re.findall(r"\(([^()]*)\)\s*=>", text):
+            found |= {q.split("=")[0].strip() for q in params.split(",")}
+        for params in re.findall(r"function\s*[\w$]*\s*\(([^)]*)\)", text):
+            found |= {q.split("=")[0].strip() for q in params.split(",")}
+        for name in re.findall(r"catch\s*\(\s*([\w$]+)", text):
+            found.add(name)
+        return {f for f in found if f}
+
+    # Cut each function body out by span. Removing their concatenation
+    # instead matches nothing, which quietly makes every local a global and
+    # defeats the whole check.
+    module_text = script
+    for _, _, _, begin, finish in sorted(functions, key=lambda f: -f[3]):
+        module_text = module_text[:begin] + module_text[finish:]
+    module_scope = bindings(module_text)
+    module_scope |= {name for name, _, _, _, _ in functions}
+
+    builtin = {
+        "Math", "Object", "Array", "JSON", "Date", "String", "Number",
+        "Promise", "document", "window", "console", "isNaN", "parseInt",
+        "parseFloat", "true", "false", "null", "undefined", "this",
+    }
+
+    problems = []
+    for name, params, body, _, _ in functions:
+        allowed = module_scope | builtin | bindings(body)
+        allowed |= {q.split("=")[0].strip() for q in params.split(",") if q.strip()}
+        for expression in re.findall(r"\$\{([^{}]*)\}", body):
+            match = re.match(r"\s*([A-Za-z_$][\w$]*)", expression)
+            if match and match.group(1) not in allowed:
+                problems.append(f"{name}() reads {match.group(1)}")
+
+    assert not problems, f"read but not bound in scope: {sorted(set(problems))}"
