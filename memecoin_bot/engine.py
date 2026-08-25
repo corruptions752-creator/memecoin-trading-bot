@@ -154,8 +154,15 @@ class TradingEngine:
         for position in list(self.positions):
             snapshot = self.market.snapshot(position.mint)
             if snapshot is None:
-                # No quote this cycle. Hold rather than dumping blind; the
-                # time stop will still force the issue if it persists.
+                # No quote this cycle. Hold rather than dumping blind.
+                #
+                # Note this is a trap, not a resting state: `continue` skips
+                # decide_exit, so NO exit rule runs -- the time stop included.
+                # A position whose pair leaves the feed is held indefinitely.
+                # Three were sitting at 12-14h against a 6h time stop when
+                # this was written. Resolving it means either pricing a fill
+                # from a stale mark or writing the position down, and both
+                # change reported P&L, so it is surfaced rather than guessed.
                 log.warning("no snapshot for %s; holding", position.symbol)
                 self._event(
                     report, "warn", at,

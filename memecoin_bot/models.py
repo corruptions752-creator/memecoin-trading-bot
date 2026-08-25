@@ -23,6 +23,7 @@ class ExitReason(str, Enum):
     """
 
     STOP_LOSS = "stop_loss"
+    GIVE_BACK = "give_back"
     TAKE_PROFIT = "take_profit"
     TRAILING_STOP = "trailing_stop"
     TIME_STOP = "time_stop"

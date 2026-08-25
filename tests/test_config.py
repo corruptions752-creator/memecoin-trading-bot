@@ -200,3 +200,35 @@ def test_an_unknown_verification_mode_is_rejected(monkeypatch):
     monkeypatch.setenv("MEMEBOT_VERIFICATION", "loose")
     with pytest.raises(RuntimeError, match="MEMEBOT_VERIFICATION"):
         load_settings()
+
+
+def test_the_give_back_ladder_reads_from_the_environment(monkeypatch):
+    monkeypatch.setenv("MEMEBOT_MODE", "paper")
+    monkeypatch.setenv("MEMEBOT_GIVE_BACK_LADDER", "2.0:1.25,1.5:1.0")
+
+    from memecoin_bot.config import load_settings
+
+    # Sorted by trigger so the walk in strategy can stop at the first miss.
+    assert load_settings().give_back_ladder == ((1.5, 1.0), (2.0, 1.25))
+
+
+def test_a_floor_above_its_own_trigger_is_refused(monkeypatch):
+    """It would fire the instant it armed, closing every winner at its peak."""
+
+    monkeypatch.setenv("MEMEBOT_MODE", "paper")
+    monkeypatch.setenv("MEMEBOT_GIVE_BACK_LADDER", "1.5:2.0")
+
+    from memecoin_bot.config import load_settings
+
+    with pytest.raises(RuntimeError, match="sits above its own trigger"):
+        load_settings()
+
+
+def test_a_floor_that_arms_at_entry_is_refused(monkeypatch):
+    monkeypatch.setenv("MEMEBOT_MODE", "paper")
+    monkeypatch.setenv("MEMEBOT_GIVE_BACK_LADDER", "1.0:1.0")
+
+    from memecoin_bot.config import load_settings
+
+    with pytest.raises(RuntimeError, match="fire the moment a position opened"):
+        load_settings()

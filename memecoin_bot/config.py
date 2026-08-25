@@ -26,6 +26,7 @@ PROFILES = {
         "max_open_positions": 3,
         "stop_loss_pct": 0.15,
         "take_profit_multiple": 2.0,
+        "give_back_ladder": ((1.3, 1.0), (1.8, 1.2)),
         "trailing_stop_pct": 0.25,
         "daily_loss_limit_pct": 0.05,
         "min_entry_score": 0.55,
@@ -40,6 +41,7 @@ PROFILES = {
         "max_open_positions": 5,
         "stop_loss_pct": 0.25,
         "take_profit_multiple": 2.5,
+        "give_back_ladder": ((1.4, 1.0), (1.9, 1.2)),
         "trailing_stop_pct": 0.30,
         "daily_loss_limit_pct": 0.10,
         "min_entry_score": 0.45,
@@ -54,6 +56,7 @@ PROFILES = {
         "max_open_positions": 8,
         "stop_loss_pct": 0.35,
         "take_profit_multiple": 3.0,
+        "give_back_ladder": ((1.5, 1.0), (2.0, 1.25)),
         "trailing_stop_pct": 0.35,
         "daily_loss_limit_pct": 0.20,
         "min_entry_score": 0.35,
@@ -120,6 +123,17 @@ class Settings:
     """Fraction of the position sold at the first target."""
     trailing_stop_pct: float = 0.25
     """After the first target, trail the remainder this far below its peak."""
+    give_back_ladder: tuple[tuple[float, float], ...] = ((1.3, 1.0), (1.8, 1.2))
+    """Floors that ratchet up as a position runs, as (peak, floor) multiples.
+
+    Before this existed the only exit between entry and the first profit
+    target was the hard stop, so a position could run to 2.3x and still be
+    walked all the way down to -35%. Six of the first twenty-three closed
+    trades did exactly that, for $102.75 of the $125.16 total drawdown.
+
+    The floor only ever rises and never sells into strength, so the rare
+    runners that pay for everything are untouched by it.
+    """
     max_hold_seconds: int = 6 * 3_600
     """Time stop. Meme coin momentum decays fast; stale bags are dead money."""
 
@@ -300,6 +314,47 @@ def resolve_lp_policy(settings: "Settings") -> str:
     return LP_STRICT if settings.mode == LIVE else LP_SUBSTITUTE
 
 
+def _ladder(
+    name: str, default: tuple[tuple[float, float], ...]
+) -> tuple[tuple[float, float], ...]:
+    """Read a give-back ladder from the environment.
+
+    Written as ``peak:floor`` pairs, e.g. ``"1.5:1.0,2.0:1.25"``. Sorted by
+    trigger so the walk in ``strategy`` can stop at the first rung the peak
+    has not reached.
+    """
+
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return tuple(sorted(default))
+
+    rungs: list[tuple[float, float]] = []
+    for chunk in raw.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        peak, _, floor = chunk.partition(":")
+        try:
+            rung = (float(peak), float(floor))
+        except ValueError:
+            raise RuntimeError(
+                f"{name} wants 'peak:floor' pairs like '1.5:1.0,2.0:1.25'; "
+                f"could not read {chunk!r}."
+            ) from None
+        if rung[0] <= 1.0:
+            raise RuntimeError(
+                f"{name}: a floor that arms at or below 1.0x ({rung[0]}) would "
+                "fire the moment a position opened."
+            )
+        if rung[1] > rung[0]:
+            raise RuntimeError(
+                f"{name}: floor {rung[1]}x sits above its own trigger "
+                f"{rung[0]}x, so it would fire immediately on arming."
+            )
+        rungs.append(rung)
+    return tuple(sorted(rungs))
+
+
 def _float(name: str, default: float, *, minimum: float = 0.0,
            maximum: float | None = None) -> float:
     """Read a bounded float from the environment."""
@@ -399,6 +454,9 @@ def load_settings() -> Settings:
         trailing_stop_pct=_float(
             "MEMEBOT_TRAILING_STOP_PCT", profile["trailing_stop_pct"],
             minimum=0.01, maximum=0.95,
+        ),
+        give_back_ladder=_ladder(
+            "MEMEBOT_GIVE_BACK_LADDER", profile["give_back_ladder"]
         ),
         min_entry_score=_float(
             "MEMEBOT_MIN_ENTRY_SCORE", profile["min_entry_score"],

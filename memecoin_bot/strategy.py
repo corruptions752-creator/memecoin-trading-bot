@@ -153,6 +153,30 @@ def decide_exit(
             note=f"price ${price:.8f} at or below stop ${stop_price:.8f}",
         )
 
+    # --- Give-back floor: a winner is not allowed to become a loser -------
+    # Until the first profit target trips there was nothing between entry and
+    # the hard stop, so a position could run to 2.3x and still be walked all
+    # the way down to -35%. The floor ratchets up with the peak and never
+    # sells into strength, so a runner still runs; it only cuts a position
+    # that already gave the gain back.
+    if not position.took_first_profit and position.entry_price_usd > 0:
+        peak_multiple = position.peak_price_usd / position.entry_price_usd
+        floor_multiple = 0.0
+        for trigger, floor in settings.give_back_ladder:
+            if peak_multiple < trigger:
+                break
+            floor_multiple = floor
+        if floor_multiple and price <= position.entry_price_usd * floor_multiple:
+            return ExitDecision(
+                reason=ExitReason.GIVE_BACK,
+                fraction=1.0,
+                note=(
+                    f"peaked at {peak_multiple:.2f}x then fell to "
+                    f"{price / position.entry_price_usd:.2f}x, through the "
+                    f"{floor_multiple:.2f}x floor"
+                ),
+            )
+
     # --- Trailing stop on the runner, once principal is safe --------------
     if position.took_first_profit:
         trail_price = position.peak_price_usd * (1.0 - settings.trailing_stop_pct)

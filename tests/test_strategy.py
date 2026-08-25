@@ -301,3 +301,116 @@ def test_a_reachable_peak_is_left_alone():
     decide_exit(position, make_snapshot(price_usd=0.0025,
                                         liquidity_usd=200_000.0), settings, NOW + 60)
     assert position.peak_price_usd == 0.003
+
+
+# --- Give-back floor -----------------------------------------------------
+#
+# Six of the first twenty-three closed trades ran up between 59% and 132%
+# and were then walked all the way back down to the hard stop, because
+# nothing sat between entry and the first profit target. Those six cost
+# $102.75 of a $125.16 total drawdown. Each case below is one of them.
+
+def _give_back_settings() -> Settings:
+    return deterministic_settings(
+        stop_loss_pct=0.35,
+        take_profit_multiple=3.0,
+        give_back_ladder=((1.5, 1.0), (2.0, 1.25)),
+    )
+
+
+def test_a_position_that_ran_up_is_not_walked_back_to_the_hard_stop():
+    """The 1% trade: peaked at 2.32x, closed at -36%."""
+
+    settings = _give_back_settings()
+    position = make_position(entry_price_usd=0.001)
+    position.mark(0.00232)  # the peak that was actually recorded
+
+    decision = decide_exit(
+        position, make_snapshot(price_usd=0.00098), settings, NOW
+    )
+
+    assert decision is not None
+    assert decision.reason is ExitReason.GIVE_BACK
+    assert decision.fraction == 1.0
+    assert "2.32x" in decision.note
+
+
+def test_the_floor_ratchets_up_once_the_position_doubles():
+    """Past 2x the floor locks a quarter of the run, not just breakeven."""
+
+    settings = _give_back_settings()
+    position = make_position(entry_price_usd=0.001)
+    position.mark(0.00203)  # SMOLCAT's peak
+
+    # 1.20x is above breakeven but below the 1.25x floor 2x arms.
+    decision = decide_exit(
+        position, make_snapshot(price_usd=0.00120), settings, NOW
+    )
+
+    assert decision is not None
+    assert decision.reason is ExitReason.GIVE_BACK
+    assert "1.25x floor" in decision.note
+
+
+def test_a_runner_is_never_cut_by_the_floor():
+    """The two trades that paid for everything must survive unchanged.
+
+    csvoss and $pigeon ran to 3.21x and 4.09x. A floor that clipped them
+    would cost more than the round-trips it saves.
+    """
+
+    settings = _give_back_settings()
+    position = make_position(entry_price_usd=0.001)
+    position.mark(0.00321)
+
+    # Still well above the 1.25x floor: nothing fires but the profit target.
+    decision = decide_exit(
+        position, make_snapshot(price_usd=0.00300), settings, NOW
+    )
+
+    assert decision is not None
+    assert decision.reason is ExitReason.TAKE_PROFIT
+
+
+def test_the_floor_stays_out_of_the_way_below_its_trigger():
+    """A position up 40% has not armed the floor, so a dip is not an exit."""
+
+    settings = _give_back_settings()
+    position = make_position(entry_price_usd=0.001)
+    position.mark(0.0014)
+
+    assert decide_exit(
+        position, make_snapshot(price_usd=0.00101), settings, NOW
+    ) is None
+
+
+def test_the_trailing_stop_governs_once_profit_is_taken():
+    """After the first sale the tighter peak trail owns the runner."""
+
+    settings = _give_back_settings()
+    position = make_position(entry_price_usd=0.001)
+    position.took_first_profit = True
+    position.mark(0.004)
+
+    decision = decide_exit(
+        position, make_snapshot(price_usd=0.0025), settings, NOW
+    )
+
+    assert decision is not None
+    assert decision.reason is ExitReason.TRAILING_STOP
+
+
+def test_the_hard_stop_still_wins_when_a_token_just_dies():
+    """Ten of twenty-three never got above 1.2x; the floor must not mask
+    the stop that handles them."""
+
+    settings = _give_back_settings()
+    position = make_position(entry_price_usd=0.001)
+    position.mark(0.00101)
+
+    decision = decide_exit(
+        position, make_snapshot(price_usd=0.0006), settings, NOW
+    )
+
+    assert decision is not None
+    assert decision.reason is ExitReason.STOP_LOSS
