@@ -7,15 +7,18 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%233987e5'/%3E%3Cpath d='M8 21l5-6 4 4 7-9' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* A trading terminal, not a form.
-   Data marks keep the validated palette -- one categorical hue for the
-   series, the fixed status pair for gain and loss, dark steps chosen for a
-   dark surface. Everything decorative (grid, glow, gradients, brackets)
-   encodes nothing, so it is free to be as loud as it likes. */
+
+   The decorative layer -- grid, nebula, corner brackets, sweep -- encodes
+   nothing, so it is free to be as loud as it likes. Every mark that carries
+   meaning keeps the validated palette: one categorical hue for series, the
+   fixed status pair for gain and loss, and direction always doubled by a
+   glyph and a sign so it survives colour-vision deficiency. */
 :root {
   color-scheme: light;
   --void:      #f2f2f0;
   --panel:     #ffffff;
   --panel-2:   #f7f7f5;
+  --glass:     #ffffffcc;
   --edge:      #e2e1dc;
   --edge-soft: #eeedea;
   --ink:       #08080a;
@@ -30,17 +33,22 @@
   --neon-wash: #2a78d614;
   --up-wash:   #0ca30c14;
   --down-wash: #d03b3b14;
+  --warn-wash: #b453091a;
   --grid:      #0000000a;
   --glow:      transparent;
-  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  --nebula-1:  transparent;
+  --nebula-2:  transparent;
+  --shadow:    0 1px 2px #0000000d;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --r: 4px;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --void:      #0a0a0f;
+    --void:      #07070c;
     --panel:     #101018;
     --panel-2:   #14141d;
+    --glass:     #10101ac9;
     --edge:      #23232f;
     --edge-soft: #1a1a24;
     --ink:       #eef0f6;
@@ -55,751 +63,1410 @@
     --neon-wash: #3987e51f;
     --up-wash:   #0ca30c24;
     --down-wash: #d03b3b24;
-    --grid:      #ffffff0a;
+    --warn-wash: #fab21922;
+    --grid:      #ffffff09;
     --glow:      #3987e526;
+    --nebula-1:  #3987e51a;
+    --nebula-2:  #a78bfa14;
+    --shadow:    0 12px 34px #00000059;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --void:#0a0a0f; --panel:#101018; --panel-2:#14141d; --edge:#23232f;
-  --edge-soft:#1a1a24; --ink:#eef0f6; --ink-2:#9fa2b4; --ink-3:#62657a;
-  --neon:#3987e5; --neon-2:#a78bfa; --neon-3:#22d3ee; --up:#0ca30c;
-  --down:#d03b3b; --warn:#fab219; --neon-wash:#3987e51f; --up-wash:#0ca30c24;
-  --down-wash:#d03b3b24; --grid:#ffffff0a; --glow:#3987e526;
+  --void:#07070c; --panel:#101018; --panel-2:#14141d; --glass:#10101ac9;
+  --edge:#23232f; --edge-soft:#1a1a24; --ink:#eef0f6; --ink-2:#9fa2b4;
+  --ink-3:#62657a; --neon:#3987e5; --neon-2:#a78bfa; --neon-3:#22d3ee;
+  --up:#0ca30c; --down:#d03b3b; --warn:#fab219; --neon-wash:#3987e51f;
+  --up-wash:#0ca30c24; --down-wash:#d03b3b24; --warn-wash:#fab21922;
+  --grid:#ffffff09; --glow:#3987e526; --nebula-1:#3987e51a;
+  --nebula-2:#a78bfa14; --shadow:0 12px 34px #00000059;
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; color: var(--ink); background: var(--void);
-  font: 14px/1.45 var(--mono);
+  font: 13px/1.5 var(--mono);
   -webkit-font-smoothing: antialiased;
-  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  padding: 0 0 env(safe-area-inset-bottom);
   background-image:
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-    radial-gradient(1100px 460px at 50% -10%, var(--glow), transparent 72%);
-  background-size: 46px 46px, 46px 46px, 100% 100%;
+    radial-gradient(880px 420px at 12% -6%, var(--nebula-1), transparent 70%),
+    radial-gradient(760px 380px at 88% 4%, var(--nebula-2), transparent 70%),
+    radial-gradient(1200px 500px at 50% -12%, var(--glow), transparent 72%);
+  background-size: 44px 44px, 44px 44px, 100% 100%, 100% 100%, 100% 100%;
   background-attachment: fixed;
 }
-.wrap { max-width: 900px; margin: 0 auto; padding: 14px 12px 60px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 14px 64px; }
 
-/* --- Panels with HUD corner brackets --- */
+/* --- Panels: glass over the grid, with HUD corner brackets --- */
 .panel {
-  position: relative; background: var(--panel);
-  border: 1px solid var(--edge); border-radius: var(--r);
-  padding: 14px 15px; margin-bottom: 9px;
+  position: relative;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
 }
 .panel::before, .panel::after {
   content: ""; position: absolute; width: 9px; height: 9px;
-  border: 1px solid var(--neon); opacity: .5; pointer-events: none;
+  border: 1px solid var(--neon); opacity: .45; pointer-events: none;
 }
 .panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
 .panel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
 
+.phead {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 11px 14px; border-bottom: 1px solid var(--edge-soft);
+}
+.phead h2 {
+  margin: 0; font-size: 10px; font-weight: 700; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--ink);
+}
+.phead .sub {
+  font-size: 10px; color: var(--ink-3); margin-left: auto; text-align: right;
+  letter-spacing: .04em;
+}
+.pbody { padding: 13px 14px; }
 .label {
   font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
   color: var(--ink-3); font-weight: 700;
 }
+.muted { color: var(--ink-3); }
+.num { font-variant-numeric: tabular-nums; }
+.pos { color: var(--up); }
+.neg { color: var(--down); }
 
-/* --- Header --- */
-header { display: flex; align-items: center; gap: 7px; padding: 4px 2px 12px; flex-wrap: wrap; }
+/* --- Top nav --- */
+nav {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in oklab, var(--void) 86%, transparent);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--edge);
+  padding: env(safe-area-inset-top) 0 0;
+}
+.navin {
+  max-width: 1240px; margin: 0 auto; padding: 9px 14px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
 .mark {
-  width: 20px; height: 20px; border-radius: 3px; flex: none;
+  width: 20px; height: 20px; border-radius: 4px; flex: none;
   background: linear-gradient(135deg, var(--neon), var(--neon-2) 55%, var(--neon-3));
-  box-shadow: 0 0 14px var(--glow);
+  box-shadow: 0 0 16px var(--glow);
 }
 h1 {
-  font-size: 12.5px; font-weight: 700; letter-spacing: .26em;
+  font-size: 12px; font-weight: 700; letter-spacing: .24em;
   text-transform: uppercase; margin: 0; white-space: nowrap;
 }
 .tag {
-  font: 700 8px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+  font: 700 8px/1 var(--mono); letter-spacing: .15em; text-transform: uppercase;
   padding: 4px 6px; border-radius: 3px; border: 1px solid;
-  color: var(--neon); border-color: color-mix(in oklab, var(--neon) 40%, transparent);
+  color: var(--neon); white-space: nowrap;
+  border-color: color-mix(in oklab, var(--neon) 40%, transparent);
   background: var(--neon-wash);
 }
-.tag.risk { color: var(--warn); background: #fab2191a;
-  border-color: color-mix(in oklab, var(--warn) 40%, transparent); }
-.tag.alert { color: var(--down); background: var(--down-wash);
-  border-color: color-mix(in oklab, var(--down) 46%, transparent); }
-.status { margin-left: auto; display: flex; align-items: center; gap: 6px;
-  font-size: 10px; color: var(--ink-3); white-space: nowrap; }
-.led { width: 5px; height: 5px; border-radius: 50%; background: var(--up);
-  box-shadow: 0 0 8px var(--up); animation: blink 2.2s ease-in-out infinite; }
-.led.stale { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
-@media (prefers-reduced-motion: reduce) { .led { animation: none } }
+.tag.warn {
+  color: var(--warn); background: var(--warn-wash);
+  border-color: color-mix(in oklab, var(--warn) 45%, transparent);
+}
+.tag.alarm {
+  color: var(--down); background: var(--down-wash);
+  border-color: color-mix(in oklab, var(--down) 45%, transparent);
+}
+.navspace { flex: 1 1 auto; }
+.navstat {
+  display: flex; align-items: center; gap: 5px; font-size: 10px;
+  color: var(--ink-2); white-space: nowrap;
+}
+.dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--up);
+  box-shadow: 0 0 8px var(--up); flex: none;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.dot.stale { background: var(--down); box-shadow: 0 0 8px var(--down); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.iconbtn {
+  font: 700 9px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-2); background: var(--panel-2); cursor: pointer;
+  border: 1px solid var(--edge); border-radius: 3px; padding: 5px 7px;
+}
+.iconbtn:hover { color: var(--ink); border-color: var(--neon); }
+.iconbtn:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+#more { margin-top: 10px; width: 100%; padding: 8px; }
 
 /* --- Ticker --- */
 .ticker {
-  overflow: hidden; border-top: 1px solid var(--edge-soft);
-  border-bottom: 1px solid var(--edge-soft); background: var(--panel);
-  margin-bottom: 9px; height: 26px; position: relative;
+  overflow: hidden; border-bottom: 1px solid var(--edge);
+  background: color-mix(in oklab, var(--panel) 70%, transparent);
 }
-.ticker-track { display: flex; gap: 22px; align-items: center; height: 100%;
-  white-space: nowrap; padding-left: 12px; animation: slide 42s linear infinite; }
-@keyframes slide { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-@media (prefers-reduced-motion: reduce) { .ticker-track { animation: none } }
-.tick { font-size: 10.5px; color: var(--ink-3); }
-.tick b { color: var(--ink-2); font-weight: 700; }
-
-/* --- Hero --- */
-.hero { padding: 18px 16px 15px; overflow: hidden; }
-.hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
-.hero-value {
-  font: 700 40px/0.95 var(--mono); letter-spacing: -.045em;
-  font-variant-numeric: tabular-nums; margin-top: 9px;
-  text-shadow: 0 0 30px var(--glow);
+.tickin {
+  display: inline-flex; gap: 26px; padding: 6px 0; white-space: nowrap;
+  animation: slide 64s linear infinite; will-change: transform;
 }
-.hero-delta { font-size: 12px; margin-top: 8px; }
-.hero-side { text-align: right; }
-.hero-side-v { font: 700 17px/1 var(--mono); font-variant-numeric: tabular-nums; margin-top: 7px; }
-.hero-meta {
-  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 15px; padding-top: 12px;
-  border-top: 1px solid var(--edge-soft); font-size: 10.5px; color: var(--ink-3);
+.ticker:hover .tickin { animation-play-state: paused; }
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.tick { font-size: 10.5px; letter-spacing: .04em; }
+.tick b { font-weight: 700; color: var(--ink); margin-right: 5px; }
+
+/* --- Layout --- */
+.grid { display: grid; gap: 10px; margin-top: 10px; align-items: start; }
+.g-2 { grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr); }
+.g-2e { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.g-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+
+/* --- Hero: portfolio --- */
+.hero { margin-top: 10px; overflow: hidden; }
+.herotop {
+  display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 1.35fr);
+  gap: 18px; padding: 16px 16px 12px; align-items: center;
 }
-.hero-meta b { color: var(--ink-2); font-weight: 700; }
-.hero-meta .sep { color: var(--edge); }
-.up { color: var(--up); }
-.down { color: var(--down); }
-
-/* --- Progress --- */
-.bar { height: 3px; background: var(--edge-soft); border-radius: 2px; overflow: hidden; margin-top: 9px; }
-.bar-fill { height: 100%; border-radius: 2px;
-  background: linear-gradient(90deg, var(--neon), var(--neon-2));
-  box-shadow: 0 0 10px var(--glow); transition: width .5s ease; }
-.bar-head { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; }
-
-/* --- Stat strip --- */
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 9px; }
-.stat { background: var(--panel); border: 1px solid var(--edge);
-  border-radius: var(--r); padding: 11px 11px; }
-.stat-v { font: 700 19px/1 var(--mono); font-variant-numeric: tabular-nums;
-  letter-spacing: -.02em; margin-top: 7px; }
-.stat-n { font-size: 9.5px; color: var(--ink-3); margin-top: 5px; }
-
-/* --- Pipeline --- */
-.pipe { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
-.node { flex: 1; min-width: 0; text-align: center; padding: 10px 2px;
-  border: 1px solid var(--edge-soft); border-radius: var(--r); background: var(--panel-2); }
-.node-v { font: 700 17px/1 var(--mono); font-variant-numeric: tabular-nums; }
-.node-l { font-size: 7.5px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ink-3); font-weight: 700; margin-top: 5px; }
-.node.live { border-color: color-mix(in oklab, var(--neon) 45%, transparent);
-  background: var(--neon-wash); }
-.node.live .node-v { color: var(--neon); text-shadow: 0 0 14px var(--glow); }
-.arrow { color: var(--edge); font-size: 10px; flex: none; }
-
-.chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.chip { font-size: 10px; padding: 4px 7px; border-radius: 3px;
-  background: var(--panel-2); border: 1px solid var(--edge-soft);
-  color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.chip b { color: var(--ink-2); font-weight: 700; }
-.note { font-size: 10.5px; color: var(--ink-3); margin-top: 10px; line-height: 1.55; }
-
-/* --- Token rows (DEX style) --- */
-.row {
-  display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
-  padding: 11px 11px; border: 1px solid var(--edge-soft); border-radius: var(--r);
-  background: var(--panel-2); margin-bottom: 6px;
+.equity {
+  font-size: clamp(30px, 5.4vw, 46px); font-weight: 700; line-height: 1;
+  letter-spacing: -.015em; font-variant-numeric: tabular-nums;
+  display: flex; align-items: baseline; gap: 9px;
 }
-.row:last-child { margin-bottom: 0; }
-.row-main { min-width: 0; }
-.row-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
-.sym { font: 700 13px var(--mono); letter-spacing: .02em; }
-.pill { font: 700 7.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
-  padding: 4px 5px; border-radius: 3px; }
-.pill.warn { background: #fab2191a; color: var(--warn); }
-.pill.ok { background: var(--up-wash); color: var(--up); }
-.row-sub { font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.row-val { text-align: right; font-variant-numeric: tabular-nums; }
-.row-val-v { font: 700 14px var(--mono); }
-.row-val-n { font-size: 9.5px; color: var(--ink-3); margin-top: 4px; }
-.track { height: 3px; background: var(--edge-soft); border-radius: 2px;
-  position: relative; margin-top: 9px; grid-column: 1 / -1; }
-.track-fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px;
-  background: var(--neon); box-shadow: 0 0 8px var(--glow); }
-.track-mark { position: absolute; top: -3px; width: 2px; height: 9px;
-  border-radius: 1px; background: var(--ink-3); }
+.equity .cur { font-size: .42em; color: var(--ink-3); font-weight: 700; }
+.equity-note { font-size: 12px; margin-top: 7px; font-variant-numeric: tabular-nums; }
+.herospark { position: relative; min-width: 0; }
+.herospark canvas { display: block; width: 100%; height: 92px; }
+.spark-cap {
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 700; margin-bottom: 5px;
+}
+.kpis {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 1px solid var(--edge-soft);
+}
+.kpi { padding: 11px 14px; border-left: 1px solid var(--edge-soft); min-width: 0; }
+.kpi:first-child { border-left: 0; }
+.kpi .v {
+  font-size: 17px; font-weight: 700; margin-top: 5px; line-height: 1.15;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.kpi .n { font-size: 10px; color: var(--ink-3); margin-top: 2px; }
 
-/* --- Chart --- */
-.chart { position: relative; }
-.chart svg { display: block; width: 100%; height: 138px; overflow: visible; }
-.gridline { stroke: var(--edge-soft); stroke-width: 1; }
-.axis-label { fill: var(--ink-3); font: 9px var(--mono); }
-.equity-line { fill: none; stroke: var(--neon); stroke-width: 2;
-  stroke-linejoin: round; stroke-linecap: round;
-  filter: drop-shadow(0 0 6px var(--glow)); }
-.equity-area { fill: var(--neon-wash); }
-.baseline { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 4; opacity: .45; }
-.hover-dot { fill: var(--neon); stroke: var(--panel); stroke-width: 2; }
-.tooltip { position: absolute; pointer-events: none; opacity: 0;
-  transform: translate(-50%,-125%); background: var(--ink); color: var(--void);
-  font: 700 10.5px var(--mono); padding: 5px 8px; border-radius: 3px;
-  white-space: nowrap; transition: opacity .12s; font-variant-numeric: tabular-nums; z-index: 3; }
-.tooltip.on { opacity: 1; }
-.spark { width: 100%; height: 28px; display: block; margin-top: 5px; }
-.spark-line { fill: none; stroke: var(--neon); stroke-width: 1.5;
-  stroke-linejoin: round; filter: drop-shadow(0 0 4px var(--glow)); }
-.spark-dot { fill: var(--neon); }
-.spark-caption { font-size: 9px; color: var(--ink-3); margin-top: 12px; letter-spacing: .06em; }
+/* --- Scanner cards --- */
+.sweep { position: relative; overflow: hidden; }
+.sweep::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 34%;
+  background: linear-gradient(90deg, transparent, var(--neon-wash), transparent);
+  animation: sweep 5.5s ease-in-out infinite; pointer-events: none;
+}
+@keyframes sweep { 0% { transform: translateX(-120%); } 100% { transform: translateX(420%); } }
+
+.cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); }
+.card {
+  border: 1px solid var(--edge); border-radius: var(--r); padding: 10px 11px;
+  background: var(--panel-2); min-width: 0; cursor: pointer;
+  transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+  text-align: left; font: inherit; color: inherit; width: 100%;
+  display: flex; flex-direction: column;
+}
+.meters { margin-top: auto; padding-top: 8px; }
+.card:hover { border-color: color-mix(in oklab, var(--neon) 55%, var(--edge)); transform: translateY(-1px); }
+.card:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
+.card.held { border-left: 2px solid var(--neon); }
+.card.buy  { border-left: 2px solid var(--up); }
+.card.avoid { opacity: .78; }
+.card.open { background: var(--panel); border-color: var(--neon); }
+.crow { display: flex; align-items: baseline; gap: 7px; }
+.sym { font-weight: 700; font-size: 13px; letter-spacing: .03em; overflow: hidden;
+       text-overflow: ellipsis; white-space: nowrap; }
+.cprice { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
+.chg { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.badges { display: flex; flex-wrap: wrap; gap: 3px; margin: 7px 0 8px; }
+.badge {
+  font: 700 8px/1 var(--mono); letter-spacing: .1em; padding: 3px 5px;
+  border-radius: 2px; border: 1px solid var(--edge); color: var(--ink-2);
+  background: var(--panel); white-space: nowrap;
+}
+.badge.good { color: var(--up); background: var(--up-wash);
+  border-color: color-mix(in oklab, var(--up) 40%, transparent); }
+.badge.bad { color: var(--down); background: var(--down-wash);
+  border-color: color-mix(in oklab, var(--down) 40%, transparent); }
+.badge.hot { color: var(--neon); background: var(--neon-wash);
+  border-color: color-mix(in oklab, var(--neon) 40%, transparent); }
+.badge.warn { color: var(--warn); background: var(--warn-wash);
+  border-color: color-mix(in oklab, var(--warn) 45%, transparent); }
+.cstats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; font-size: 10.5px; }
+.cstats div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; }
+.cstats span { color: var(--ink-3); }
+.cstats b { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Confidence / risk meters: a bar plus its number, never the bar alone. */
+.meter:first-child { margin-top: 0; }
+.meter { margin-top: 8px; }
+.meter + .meter { margin-top: 6px; }
+.mtop { display: flex; justify-content: space-between; font-size: 9.5px; gap: 6px; }
+.mtop span { color: var(--ink-3); letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
+.mtop b { font-variant-numeric: tabular-nums; font-weight: 700; }
+.track { height: 4px; background: var(--edge-soft); border-radius: 2px; margin-top: 3px; overflow: hidden; }
+.fill {
+  display: block; height: 100%; min-width: 2px;
+  background: var(--neon); border-radius: 2px; transition: width .3s ease;
+}
+.fill.good { background: var(--up); }
+.fill.warn { background: var(--warn); }
+.fill.bad { background: var(--down); }
+
+/* Expanded card detail */
+.detail { margin-top: 9px; border-top: 1px solid var(--edge-soft); padding-top: 8px; }
+.factor {
+  display: flex; gap: 7px; align-items: baseline; flex-wrap: wrap;
+  font-size: 10.5px; padding: 2px 0;
+}
+.fmark { width: 11px; flex: none; text-align: center; font-weight: 700; }
+.fmark.ok { color: var(--up); }
+.fmark.warn { color: var(--warn); }
+.fmark.danger { color: var(--down); }
+.fmark.unknown { color: var(--ink-3); }
+.fname { color: var(--ink-2); flex: none; }
+.fdetail { color: var(--ink-3); min-width: 0; flex: 1 1 130px; }
+.why { margin: 7px 0 0; padding-left: 15px; font-size: 10.5px; color: var(--ink-2); }
+.why li { margin: 1px 0; }
+
+/* --- AI signals --- */
+.signal {
+  border: 1px solid var(--edge); border-left-width: 2px; border-radius: var(--r);
+  padding: 9px 10px; background: var(--panel-2); margin-bottom: 7px;
+}
+.signal:last-child { margin-bottom: 0; }
+.signal.BUY { border-left-color: var(--up); }
+.signal.WATCH { border-left-color: var(--neon); }
+.signal.HELD { border-left-color: var(--neon-2); }
+.signal.AVOID { border-left-color: var(--down); }
+.sigtop { display: flex; align-items: baseline; gap: 7px; }
+.verdict {
+  font: 700 8px/1 var(--mono); letter-spacing: .14em; padding: 4px 5px;
+  border-radius: 2px; border: 1px solid var(--edge); background: var(--panel);
+}
+.verdict.BUY { color: var(--up); border-color: color-mix(in oklab, var(--up) 45%, transparent); background: var(--up-wash); }
+.verdict.WATCH { color: var(--neon); border-color: color-mix(in oklab, var(--neon) 45%, transparent); background: var(--neon-wash); }
+.verdict.HELD { color: var(--neon-2); border-color: color-mix(in oklab, var(--neon-2) 45%, transparent); }
+.verdict.AVOID { color: var(--down); border-color: color-mix(in oklab, var(--down) 45%, transparent); background: var(--down-wash); }
+.conf { margin-left: auto; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* --- Risk monitor --- */
+.gauges { display: grid; gap: 9px; }
+.gauge .gtop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11px; }
+.gauge .gtop b { font-variant-numeric: tabular-nums; }
+.gauge .gnote { font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+.gtrack { height: 5px; background: var(--edge-soft); border-radius: 3px; margin-top: 4px; overflow: hidden; position: relative; }
+.gfill {
+  display: block; height: 100%; min-width: 3px;
+  border-radius: 3px; background: var(--neon); transition: width .3s ease;
+}
+.gfill.warn { background: var(--warn); }
+.gfill.bad { background: var(--down); }
+.flags { margin-top: 11px; display: grid; gap: 5px; }
+.expo { margin-top: 13px; }
+.erow {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+  align-items: center; font-size: 11px; padding: 4px 0;
+  border-top: 1px solid var(--edge-soft);
+}
+.erow .ebar { grid-column: 1 / -1; height: 3px; background: var(--edge-soft); border-radius: 2px; }
+.erow .ebar i { display: block; height: 100%; border-radius: 2px; background: var(--neon); }
+.flag {
+  display: flex; gap: 7px; align-items: baseline; font-size: 10.5px;
+  padding: 6px 8px; border-radius: 3px; border: 1px solid var(--edge);
+  background: var(--panel-2);
+}
+.flag.warn { border-color: color-mix(in oklab, var(--warn) 40%, transparent); background: var(--warn-wash); }
+.flag.bad { border-color: color-mix(in oklab, var(--down) 40%, transparent); background: var(--down-wash); }
+.flag .fico { font-weight: 700; flex: none; }
+
+/* --- Terminal feed --- */
+.term {
+  font-size: 11px; line-height: 1.65; max-height: 330px; overflow-y: auto;
+  padding: 10px 12px; background: color-mix(in oklab, var(--void) 55%, var(--panel));
+  border-radius: var(--r); scrollbar-width: thin;
+}
+.line { display: flex; gap: 8px; align-items: baseline; padding: 1px 0; animation: fadein .3s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; } }
+.ts { color: var(--ink-3); flex: none; font-size: 10px; }
+.kind {
+  flex: none; width: 62px; font-weight: 700; font-size: 9px; letter-spacing: .1em;
+  color: var(--ink-3);
+}
+.kind.buy { color: var(--up); }
+.kind.sell, .kind.reduce { color: var(--neon-2); }
+.kind.fail, .kind.halt { color: var(--down); }
+.kind.advisory, .kind.warn { color: var(--warn); }
+.kind.reject { color: var(--ink-2); }
+.msg { color: var(--ink-2); min-width: 0; word-break: break-word; }
+.line.buy .msg, .line.sell .msg { color: var(--ink); }
+
+/* --- Pipeline funnel --- */
+.funnel { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+.step { flex: 1 1 84px; padding: 9px 10px; border-left: 1px solid var(--edge-soft); min-width: 0; }
+.step:first-child { border-left: 0; padding-left: 0; }
+.step .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.step .k { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
+.step .arrow { color: var(--ink-3); font-size: 10px; }
+.reasons { margin-top: 11px; display: grid; gap: 4px; }
+.reason { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 11px; align-items: center; }
+.rbar { grid-column: 1 / -1; height: 3px; background: var(--edge-soft); border-radius: 2px; overflow: hidden; }
+.rbar i { display: block; height: 100%; background: var(--ink-3); }
 
 /* --- Tables --- */
-.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-th { text-align: left; font-size: 8px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--ink-3); font-weight: 700; padding: 0 11px 8px 0; white-space: nowrap; }
-td { padding: 8px 11px 8px 0; border-top: 1px solid var(--edge-soft);
-  white-space: nowrap; font-variant-numeric: tabular-nums; }
-.muted { color: var(--ink-3); font-size: 10.5px; }
-.side { font: 700 7.5px/1 var(--mono); letter-spacing: .12em; padding: 4px 6px; border-radius: 3px; }
-.side.buy { background: var(--neon-wash); color: var(--neon); }
-.side.sell { background: var(--panel-2); color: var(--ink-3); border: 1px solid var(--edge-soft); }
+th {
+  text-align: left; font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 700; padding: 0 8px 7px 0; white-space: nowrap;
+  border-bottom: 1px solid var(--edge-soft);
+}
+td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--edge-soft); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.num:last-child, th.num:last-child { padding-right: 0; }
+.scroll { overflow-x: auto; }
+.scroll table { min-width: 520px; }
+.side { font-weight: 700; font-size: 9px; letter-spacing: .1em; }
+.side { margin-right: 6px; }
+.side.buy { color: var(--up); }
+.side.sell { color: var(--neon-2); }
 
-/* --- Empty / halt / misses --- */
-.empty { padding: 24px 12px; text-align: center; }
-.empty-t { font-size: 11.5px; font-weight: 700; color: var(--ink-2); letter-spacing: .06em; }
-.empty-b { font-size: 10.5px; color: var(--ink-3); margin-top: 7px; line-height: 1.6; }
-.halt { display: none; gap: 10px; align-items: flex-start; background: var(--down-wash);
-  border: 1px solid color-mix(in oklab, var(--down) 46%, transparent);
-  border-radius: var(--r); padding: 12px 14px; margin-bottom: 9px; }
-.halt.on { display: flex; }
-.halt-i { color: var(--down); font-weight: 700; }
-.halt-t { font-weight: 700; font-size: 12px; letter-spacing: .04em; }
-.halt-b { color: var(--ink-2); font-size: 10.5px; margin-top: 3px; }
-.misses { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--edge-soft); }
-.misses-t { font-size: 8.5px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--ink-3); font-weight: 700; margin-bottom: 9px; line-height: 1.5; }
-.miss { margin-bottom: 9px; }
-.miss-s { font: 700 11.5px var(--mono); color: var(--ink-2); }
-.miss-r { margin: 4px 0 0; padding-left: 14px; }
-.miss-r li { font-size: 10px; color: var(--ink-3); line-height: 1.5; }
-.foot { color: var(--ink-3); font-size: 9.5px; text-align: center;
-  margin-top: 24px; line-height: 1.8; letter-spacing: .05em; }
+/* Position ladder: stop / now / target on one line */
+.ladder { position: relative; height: 4px; background: var(--edge-soft); border-radius: 2px; margin-top: 5px; }
+.ladder i { position: absolute; top: -3px; width: 2px; height: 10px; border-radius: 1px; }
+.ladder .lstop { background: var(--down); left: 0; }
+.ladder .ltarget { background: var(--up); right: 0; }
+.ladder .lnow { background: var(--ink); width: 3px; }
+.ladder .lpeak { background: var(--ink-3); }
 
-@media (max-width: 640px) {
-  .hero-value { font-size: 33px; }
-  .node { padding: 9px 1px; }
-  .node-v { font-size: 15px; }
-  .arrow { display: none; }
-  .stats { gap: 6px; }
-  .stat-v { font-size: 17px; }
+@media (max-width: 620px) {
+  .scroll table { min-width: 0; }
+  .rtable thead { display: none; }
+  .rtable tr {
+    display: block; padding: 10px 0; border-bottom: 1px solid var(--edge-soft);
+  }
+  .rtable tr:last-child { border-bottom: 0; }
+  .rtable td {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; border: 0; padding: 2px 0; text-align: right;
+  }
+  .rtable td::before {
+    content: attr(data-l); color: var(--ink-3); font-size: 9px;
+    letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+    flex: none;
+  }
+  .rtable td:first-child { display: block; text-align: left; margin-bottom: 5px; }
+  .rtable td:first-child::before { content: none; }
+  .rtable td br { display: none; }
+  .rtable td.num > span + span { margin-left: 8px; }
+}
+
+.empty { color: var(--ink-3); font-size: 11.5px; padding: 12px 0; text-align: center; }
+.note { font-size: 10.5px; color: var(--ink-3); margin-top: 9px; }
+canvas { display: block; width: 100%; }
+foot, .foot {
+  display: block; margin-top: 16px; font-size: 10.5px; color: var(--ink-3);
+  line-height: 1.6; text-align: center;
+}
+
+@media (max-width: 900px) {
+  .g-2e { grid-template-columns: minmax(0, 1fr); }
+  /* Collapse to a single column rather than shrinking two into unreadable
+     slivers: a token card below ~210px cannot hold a price and a change. */
+  .g-2, .g-3 { grid-template-columns: minmax(0, 1fr); }
+  .herotop { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpi:nth-child(4) { border-left: 0; }
+  .kpi:nth-child(n+4) { border-top: 1px solid var(--edge-soft); }
+}
+@media (max-width: 560px) {
+  .wrap { padding: 0 10px 48px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(odd) { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--edge-soft); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 10.5px; letter-spacing: .18em; }
+  .kind { width: 54px; }
+  .fname { min-width: 92px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
 }
 </style>
 </head>
 <body>
+
+<nav>
+  <div class="navin">
+    <div class="mark" aria-hidden="true"></div>
+    <h1>Memecoin Terminal</h1>
+    <span class="tag" id="mode">—</span>
+    <span class="tag" id="profile" hidden>—</span>
+    <span class="tag warn" id="verify" hidden>ADVISORY</span>
+    <span class="tag alarm" id="halt" hidden>HALTED</span>
+    <span class="navspace"></span>
+    <span class="navstat" id="market" title="Share of the tokens scanned this cycle that are up over five minutes."></span>
+    <span class="navstat" id="clock"></span>
+    <span class="navstat" id="updated"><span class="dot"></span>connecting</span>
+    <button class="iconbtn" id="theme" type="button" title="Switch between the dark and light palette">THEME</button>
+  </div>
+  <div class="ticker"><div class="tickin" id="ticker"></div></div>
+</nav>
+
 <div class="wrap">
 
-  <header>
-    <span class="mark"></span>
-    <h1>Memecoin Terminal</h1>
-    <span class="tag" id="mode">PAPER</span>
-    <span class="tag risk" id="profile" hidden>—</span>
-    <span class="tag alert" id="verify" hidden>ADVISORY</span>
-    <span class="status"><span class="led" id="led"></span><span id="updated">connecting…</span></span>
-  </header>
-
-  <div class="ticker" id="ticker" hidden>
-    <div class="ticker-track" id="ticker-track"></div>
-  </div>
-
-  <div class="halt" id="halt">
-    <span class="halt-i">■</span>
-    <div>
-      <div class="halt-t">TRADING HALTED — DAILY LOSS LIMIT</div>
-      <div class="halt-b" id="halt-reason"></div>
-    </div>
-  </div>
-
-  <div class="panel hero">
-    <div class="hero-row">
+  <!-- Portfolio centrepiece -->
+  <section class="panel hero">
+    <div class="herotop">
       <div>
-        <div class="label">Portfolio Value</div>
-        <div class="hero-value" id="equity">—</div>
-        <div class="hero-delta" id="equity-note"></div>
+        <div class="label">Portfolio value</div>
+        <div class="equity"><span class="cur">$</span><span id="equity">—</span></div>
+        <div class="equity-note" id="equity-note">&nbsp;</div>
       </div>
-      <div class="hero-side">
+      <div class="herospark">
+        <div class="spark-cap" id="spark-cap">Tokens seen per cycle</div>
+        <canvas id="spark" height="92" aria-hidden="true"></canvas>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi">
+        <div class="label">Total P&amp;L</div>
+        <div class="v" id="pnl">—</div>
+        <div class="n" id="pnl-note">since start</div>
+      </div>
+      <div class="kpi">
         <div class="label">Today</div>
-        <div class="hero-side-v" id="today">—</div>
-        <div class="stat-n" id="today-note"></div>
+        <div class="v" id="today">—</div>
+        <div class="n" id="today-note">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Win rate</div>
+        <div class="v" id="winrate">—</div>
+        <div class="n" id="winrate-note">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Positions</div>
+        <div class="v" id="open">—</div>
+        <div class="n" id="open-note">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Available</div>
+        <div class="v" id="cash">—</div>
+        <div class="n" id="cash-note">&nbsp;</div>
       </div>
     </div>
-    <div class="hero-meta" id="strip" hidden>
-      <span>scanning <b id="strip-scanned">—</b></span>
-      <span class="sep">/</span>
-      <span>next <b id="strip-next">—</b></span>
-      <span class="sep">/</span>
-      <span><b id="strip-risk">—</b> per trade</span>
+  </section>
+
+  <!-- Scanner -->
+  <section class="panel" style="margin-top:10px">
+    <div class="phead sweep">
+      <h2>Meme coin scanner</h2>
+      <span class="sub" id="scan-meta"></span>
     </div>
+    <div class="pbody">
+      <div class="cards" id="cards"></div>
+      <button class="iconbtn" id="more" type="button" hidden></button>
+      <div class="note" id="cards-note"></div>
+    </div>
+  </section>
+
+  <!-- AI signals + risk monitor -->
+  <div class="grid g-2e">
+    <section class="panel">
+      <div class="phead">
+        <h2>AI signals</h2>
+        <span class="sub" id="signal-meta"></span>
+      </div>
+      <div class="pbody">
+        <div id="signals"></div>
+        <div class="note">Confidence is the entry model's own score: five-minute
+        momentum, 24h turnover, buy/sell flow and pool depth, weighted and
+        capped. A trade opens at <b id="threshold">—</b> or above.</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="phead">
+        <h2>Risk monitor</h2>
+        <span class="sub" id="risk-meta"></span>
+      </div>
+      <div class="pbody">
+        <div class="gauges" id="gauges"></div>
+        <div class="flags" id="flags"></div>
+        <div class="expo" id="expo"></div>
+      </div>
+    </section>
   </div>
 
-  <div class="panel" id="progress" hidden>
-    <div class="bar-head">
-      <span class="label" id="progress-day">DAY 1 / 21</span>
-      <span class="muted" id="progress-detail"></span>
+  <!-- Positions -->
+  <section class="panel" style="margin-top:10px">
+    <div class="phead">
+      <h2>Open positions</h2>
+      <span class="sub" id="pos-meta"></span>
     </div>
-    <div class="bar"><div class="bar-fill" id="progress-fill"></div></div>
+    <div class="pbody"><div id="positions"></div></div>
+  </section>
+
+  <!-- Equity curve -->
+  <section class="panel" id="chart-card" hidden>
+    <div class="phead">
+      <h2>Equity curve</h2>
+      <span class="sub" id="chart-meta"></span>
+    </div>
+    <div class="pbody"><canvas id="chart" height="200"></canvas></div>
+  </section>
+
+  <!-- Terminal + pipeline -->
+  <div class="grid g-2">
+    <section class="panel">
+      <div class="phead">
+        <h2>Bot activity</h2>
+        <span class="sub" id="term-meta"></span>
+      </div>
+      <div class="pbody"><div class="term" id="term"></div></div>
+    </section>
+
+    <section class="panel">
+      <div class="phead">
+        <h2>Scan pipeline</h2>
+        <span class="sub" id="funnel-meta"></span>
+      </div>
+      <div class="pbody">
+        <div class="funnel" id="funnel"></div>
+        <div class="reasons" id="reasons"></div>
+        <div class="note" id="progress"></div>
+      </div>
+    </section>
   </div>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="label">Slots</div>
-      <div class="stat-v" id="open">—</div>
-      <div class="stat-n" id="open-note"></div>
-    </div>
-    <div class="stat">
-      <div class="label">Win Rate</div>
-      <div class="stat-v" id="winrate">—</div>
-      <div class="stat-n" id="winrate-note"></div>
-    </div>
-    <div class="stat">
-      <div class="label">Trades</div>
-      <div class="stat-v" id="tradecount">—</div>
-      <div class="stat-n" id="tradecount-note"></div>
-    </div>
-  </div>
+  <!-- Closed trades + order log -->
+  <div class="grid g-2">
+    <section class="panel">
+      <div class="phead">
+        <h2>Closed trades</h2>
+        <span class="sub" id="closed-meta"></span>
+      </div>
+      <div class="pbody"><div class="scroll" id="closed"></div></div>
+    </section>
 
-  <div class="panel" id="chart-card" hidden>
-    <div class="bar-head" style="margin-bottom:11px">
-      <span class="label">Equity Curve</span>
-      <span class="muted" id="chart-meta"></span>
-    </div>
-    <div class="chart" id="chart">
-      <svg id="svg" viewBox="0 0 720 138" preserveAspectRatio="none" role="img"
-           aria-label="Equity after each closed trade"></svg>
-      <div class="tooltip" id="tip"></div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="bar-head" style="margin-bottom:11px">
-      <span class="label">Scanner</span>
-      <span class="muted" id="scan-when"></span>
-    </div>
-    <div id="scan"><div class="empty"><div class="empty-t">Awaiting first scan</div></div></div>
-    <div class="spark-caption" id="spark-caption" hidden></div>
-    <svg class="spark" id="spark" viewBox="0 0 300 28" preserveAspectRatio="none"
-         role="img" aria-label="Tokens scanned per cycle"></svg>
-  </div>
-
-  <div class="panel">
-    <div class="bar-head" style="margin-bottom:11px">
-      <span class="label">Open Positions</span>
-      <span class="muted" id="pos-meta"></span>
-    </div>
-    <div id="positions"></div>
-  </div>
-
-  <div class="panel">
-    <div class="bar-head" style="margin-bottom:11px">
-      <span class="label">Closed</span>
-      <span class="muted" id="closed-meta"></span>
-    </div>
-    <div class="scroll" id="closed"></div>
-  </div>
-
-  <div class="panel">
-    <div class="bar-head" style="margin-bottom:11px">
-      <span class="label">Order Flow</span>
-      <span class="muted">newest first</span>
-    </div>
-    <div class="note" id="fills-note" hidden>Negative cost is reclaimed
-      account rent on a fully closed position.</div>
-    <div class="scroll" id="fills"></div>
+    <section class="panel">
+      <div class="phead">
+        <h2>Order log</h2>
+        <span class="sub" id="fills-meta"></span>
+      </div>
+      <div class="pbody">
+        <div class="scroll" id="fills"></div>
+        <div class="note" id="fills-note" hidden>Net cost is the fee and price
+        impact the simulator charged; both are modelled, not guessed at.</div>
+      </div>
+    </section>
   </div>
 
   <div class="foot" id="foot"></div>
 </div>
 
 <script>
+"use strict";
+
 const $ = id => document.getElementById(id);
 
-const money = v => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US",
-  { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const pct = v => (v * 100).toFixed(1) + "%";
+// The most recent payload, and when it arrived. Declared first because the
+// theme initialiser runs at load and redraws from it.
+let lastState = {};
+let lastOk = 0;
 
-// Gains and losses never rely on color alone: a glyph and a sign carry the
-// direction too, which matters because the status green and red are close
-// under deuteranopia.
-function signed(el, value, formatter = money) {
-  const glyph = value > 0 ? "▲ " : value < 0 ? "▼ " : "";
-  el.textContent = glyph + (value > 0 ? "+" : "") + formatter(value);
-  el.classList.toggle("pos", value > 0);
-  el.classList.toggle("neg", value < 0);
+// The paper test runs for three weeks before anything goes live; the page
+// says where in that window the run is rather than leaving it to be counted.
+const RUN_DAYS = 21;
+
+// --- Formatters ----------------------------------------------------------
+
+function money(value) {
+  if (value === null || value === undefined || isNaN(value)) return "—";
+  const sign = value < 0 ? "-" : "";
+  return sign + "$" + Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
 }
 
-function price(v) {
-  if (!v) return "0";
-  if (v >= 1) return v.toFixed(4);
-  if (v >= 0.0001) return v.toFixed(6);
-  return v.toExponential(3);
+function compact(value) {
+  if (value === null || value === undefined || isNaN(value)) return "—";
+  const a = Math.abs(value);
+  if (a >= 1e9) return "$" + (value / 1e9).toFixed(1) + "B";
+  if (a >= 1e6) return "$" + (value / 1e6).toFixed(1) + "M";
+  if (a >= 1e3) return "$" + Math.round(value / 1e3) + "K";
+  return "$" + Math.round(value);
+}
+
+function pct(value, places) {
+  if (value === null || value === undefined || isNaN(value)) return "—";
+  return (value * 100).toFixed(places === undefined ? 1 : places) + "%";
+}
+
+// Meme coin prices span ten orders of magnitude, so a fixed number of
+// decimals is either noise or a row of zeros.
+function price(value) {
+  if (value === null || value === undefined || isNaN(value)) return "—";
+  const a = Math.abs(value);
+  if (a === 0) return "0";
+  if (a >= 1) return value.toFixed(4);
+  if (a >= 0.01) return value.toFixed(5);
+  if (a >= 0.0001) return value.toFixed(7);
+  return value.toExponential(2);
+}
+
+function ago(seconds) {
+  if (seconds === null || seconds === undefined || isNaN(seconds)) return "—";
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return s + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
 }
 
 function heldFor(hours) {
+  if (hours === null || hours === undefined || isNaN(hours)) return "—";
   if (hours < 1) return Math.round(hours * 60) + "m";
   if (hours < 48) return hours.toFixed(1) + "h";
   return (hours / 24).toFixed(1) + "d";
 }
 
-function ago(seconds) {
-  if (seconds < 60) return Math.round(seconds) + "s ago";
-  if (seconds < 3600) return Math.round(seconds / 60) + "m ago";
-  if (seconds < 86400) return (seconds / 3600).toFixed(1) + "h ago";
-  return (seconds / 86400).toFixed(1) + "d ago";
-}
+// Green and red sit close together under deuteranopia, so direction is
+// always carried by the arrow and the sign as well as the hue.
+function arrow(value) { return value >= 0 ? "▲" : "▼"; }
 
-// --- Equity chart --------------------------------------------------------
-let chartPoints = [];
-
-function drawChart(equity, start) {
-  const svg = $("svg");
-  const W = 720, H = 140, PAD_L = 52, PAD_R = 8, PAD_T = 10, PAD_B = 20;
-  svg.innerHTML = "";
-  chartPoints = [];
-
-  if (!equity || equity.length < 2) {
-    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle"
-      class="axis-label">No closed trades yet</text>`;
+function signed(element, value, format) {
+  const text = format ? format(value) : money(value);
+  if (!value) {
+    element.textContent = text;
+    element.classList.remove("pos", "neg");
     return;
   }
-
-  const lo = Math.min(...equity, start), hi = Math.max(...equity, start);
-  const span = (hi - lo) || Math.max(1, hi * 0.01);
-  const pad = span * 0.15;
-  const min = lo - pad, max = hi + pad;
-
-  const x = i => PAD_L + (i / (equity.length - 1)) * (W - PAD_L - PAD_R);
-  const y = v => PAD_T + (1 - (v - min) / (max - min)) * (H - PAD_T - PAD_B);
-
-  const ns = "http://www.w3.org/2000/svg";
-  const add = (tag, attrs, text) => {
-    const el = document.createElementNS(ns, tag);
-    for (const k in attrs) el.setAttribute(k, attrs[k]);
-    if (text !== undefined) el.textContent = text;
-    svg.appendChild(el);
-    return el;
-  };
-
-  // Recessive gridlines with value labels.
-  for (const frac of [0, 0.5, 1]) {
-    const value = min + (max - min) * frac;
-    const yy = y(value);
-    add("line", { x1: PAD_L, x2: W - PAD_R, y1: yy, y2: yy, class: "gridline" });
-    add("text", {
-      x: PAD_L - 8, y: yy + 3.5, "text-anchor": "end", class: "axis-label",
-    }, "$" + value.toFixed(0));
-  }
-
-  // Starting capital: the line that decides whether this is up or down.
-  if (start > min && start < max) {
-    add("line", {
-      x1: PAD_L, x2: W - PAD_R, y1: y(start), y2: y(start), class: "baseline",
-    });
-  }
-
-  const line = equity.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  add("polygon", {
-    points: `${PAD_L},${y(min)} ${line} ${x(equity.length - 1)},${y(min)}`,
-    class: "equity-area",
-  });
-  add("polyline", { points: line, class: "equity-line" });
-
-  const dot = add("circle", { r: 4, class: "hover-dot", opacity: 0 });
-  equity.forEach((v, i) => chartPoints.push({ x: x(i), y: y(i === 0 ? v : v), v, i }));
-
-  // Hover layer: crosshair dot plus tooltip, as any HTML line chart should have.
-  const chart = $("chart"), tip = $("tip");
-  const move = event => {
-    const box = svg.getBoundingClientRect();
-    const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-    const svgX = ((clientX - box.left) / box.width) * W;
-    let best = chartPoints[0];
-    for (const p of chartPoints) {
-      if (Math.abs(p.x - svgX) < Math.abs(best.x - svgX)) best = p;
-    }
-    dot.setAttribute("cx", best.x);
-    dot.setAttribute("cy", best.y);
-    dot.setAttribute("opacity", 1);
-    const delta = best.v - start;
-    const glyph = delta > 0 ? "▲" : delta < 0 ? "▼" : "";
-    tip.textContent = `${best.i === 0 ? "start" : "trade " + best.i} · ` +
-      `${money(best.v)}  ${glyph}${delta >= 0 ? "+" : ""}${money(delta)}`;
-    tip.style.left = (best.x / W) * box.width + "px";
-    tip.style.top = (best.y / H) * box.height + "px";
-    tip.classList.add("on");
-  };
-  const leave = () => { dot.setAttribute("opacity", 0); tip.classList.remove("on"); };
-  chart.onmousemove = move;
-  chart.onmouseleave = leave;
-  chart.ontouchstart = move;
-  chart.ontouchmove = move;
-  chart.ontouchend = leave;
+  element.textContent = arrow(value) + " " + (value > 0 ? "+" : "") + text;
+  element.classList.toggle("pos", value > 0);
+  element.classList.toggle("neg", value < 0);
 }
 
-// --- Positions -----------------------------------------------------------
-// A live strip of what the scanner holds and what it just turned down.
-// Duplicated once so the marquee wraps without a visible seam.
-function renderTicker(state) {
-  const host = $("ticker"), track = $("ticker-track");
-  const items = [];
-
-  for (const p of state.positions) {
-    const gain = p.entry_price > 0 ? (p.peak_price / p.entry_price - 1) : 0;
-    const arrow = gain > 0 ? "\u25B2" : gain < 0 ? "\u25BC" : "\u00B7";
-    const cls = gain > 0 ? "up" : gain < 0 ? "down" : "";
-    items.push(`<span class="tick"><b>${escapeHtml(p.symbol)}</b> ` +
-      `<span class="${cls}">${arrow} ${(gain * 100).toFixed(1)}%</span></span>`);
-  }
-  for (const [symbol] of (state.activity && state.activity.near_misses) || []) {
-    items.push(`<span class="tick">${escapeHtml(symbol)} ` +
-      `<span class="muted">skipped</span></span>`);
-  }
-  if (!items.length) { host.hidden = true; return; }
-  host.hidden = false;
-  track.innerHTML = items.join("") + items.join("");
-}
-
-// Cycles arrive roughly hourly however often they are asked for, so "due" is
-// an estimate and lateness is normal. Only a long gap means something broke.
-const CYCLE_SECONDS = 5 * 60;
-const STALE_SECONDS = 45 * 60;
-
-function renderStrip(state) {
-  const strip = $("strip");
-  const a = state.activity;
-  if (!a) { strip.hidden = true; return; }
-  strip.hidden = false;
-
-  $("strip-scanned").textContent = a.scanned.toLocaleString();
-  const risk = state.risk || {};
-  $("strip-risk").textContent = risk.per_trade_pct
-    ? (risk.per_trade_pct * 100).toFixed(0) + "%" : "\u2014";
-
-  const since = Date.now() / 1000 - (state.generated_at || 0);
-  if (since > STALE_SECONDS) {
-    $("strip-next").textContent = "overdue by " + ago(since - STALE_SECONDS);
-  } else {
-    const remaining = CYCLE_SECONDS - (since % CYCLE_SECONDS);
-    $("strip-next").textContent =
-      "~" + Math.max(1, Math.round(remaining / 60)) + "m";
-  }
-}
-
-// The paper run is a three-week experiment in which most cycles do nothing,
-// so accumulated progress is what separates "working" from "stuck".
-const RUN_DAYS = 21;
-
-function renderProgress(state) {
-  const run = state.run;
-  const host = $("progress");
-  if (!run || !run.cycles) { host.hidden = true; return; }
-  host.hidden = false;
-
-  const day = Math.min(RUN_DAYS, Math.floor(run.days) + 1);
-  $("progress-day").textContent = `DAY ${day} / ${RUN_DAYS}`;
-  $("progress-detail").textContent =
-    `${run.cycles.toLocaleString()} cycles \u00B7 ` +
-    `${run.tokens_seen.toLocaleString()} tokens seen`;
-  $("progress-fill").style.width =
-    Math.min(100, (run.days / RUN_DAYS) * 100).toFixed(1) + "%";
-}
-
-function renderScan(activity) {
-  const host = $("scan");
-  if (!activity) {
-    host.innerHTML = `<div class="empty"><div class="empty-t">Awaiting first scan</div></div>`;
-    return;
-  }
-  $("scan-when").textContent = ago(Date.now() / 1000 - activity.at);
-
-  const steps = [
-    ["seen", activity.scanned],
-    ["shortlist", activity.shortlisted ?? 0],
-    ["verified", activity.candidates],
-    ["bought", activity.entered],
-  ];
-  const funnel = steps.map(([label, n], i) => `
-    ${i ? '<span class="arrow">&#9656;</span>' : ""}
-    <div class="node ${n > 0 ? "live" : ""}">
-      <div class="node-v">${n}</div><div class="node-l">${label}</div>
-    </div>`).join("");
-
-  const reasons = Object.entries(activity.rejections || {})
-    .sort((a, b) => b[1] - a[1]);
-  const chips = reasons.length
-    ? `<div class="chips">` + reasons.map(([why, n]) =>
-        `<span class="chip"><b>${n}</b> ${escapeHtml(why)}</span>`).join("") +
-      `</div>`
-    : "";
-
-  let note = "";
-  const lookups = activity.rpc_lookups || 0;
-  const failures = activity.rpc_failures || 0;
-  if (lookups > 0 && failures / lookups > 0.5) {
-    note = `<div class="note" style="color:var(--warn)">
-      ${failures} of ${lookups} on-chain lookups failed. Nothing can verify
-      while the endpoint is unreachable — an infrastructure problem, not a
-      market one.</div>`;
-  } else if (activity.skipped_reason) {
-    note = `<div class="note">Not buying: ${escapeHtml(activity.skipped_reason)}</div>`;
-  } else if (activity.scanned === 0) {
-    note = `<div class="note">No market data this cycle. Run <code>doctor</code>
-      to check the feeds.</div>`;
-  } else if (activity.candidates === 0) {
-    note = `<div class="note">Nothing cleared the filters this cycle — the
-      normal result most of the time.</div>`;
-  }
-
-  const misses = activity.near_misses || [];
-  let missBlock = "";
-  if (misses.length) {
-    missBlock = `<div class="misses">
-      <div class="misses-t">Closest calls — cleared market checks, failed
-        verification</div>` +
-      misses.map(([symbol, rs]) => `
-        <div class="miss">
-          <div class="miss-s">${escapeHtml(symbol)}</div>
-          <ul class="miss-r">${rs.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
-        </div>`).join("") + `</div>`;
-  }
-  host.innerHTML = `<div class="pipe">${funnel}</div>${chips}${note}${missBlock}`;
-}
-
-function drawSpark(history) {
-  const svg = $("spark");
-  svg.innerHTML = "";
-  if (!history || history.length < 2) { $("spark-caption").hidden = true; return; }
-
-  const values = history.map(h => h.scanned);
-  const W = 300, H = 28, PAD = 3;
-  const hi = Math.max(...values), lo = Math.min(...values);
-  const span = (hi - lo) || 1;
-  const x = i => (i / (values.length - 1)) * W;
-  const y = v => PAD + (1 - (v - lo) / span) * (H - PAD * 2);
-
-  const ns = "http://www.w3.org/2000/svg";
-  const line = document.createElementNS(ns, "polyline");
-  line.setAttribute("points", values.map((v, i) => `${x(i)},${y(v)}`).join(" "));
-  line.setAttribute("class", "spark-line");
-  svg.appendChild(line);
-
-  const dot = document.createElementNS(ns, "circle");
-  dot.setAttribute("cx", x(values.length - 1));
-  dot.setAttribute("cy", y(values[values.length - 1]));
-  dot.setAttribute("r", 2.2);
-  dot.setAttribute("class", "spark-dot");
-  svg.appendChild(dot);
-
-  const caption = $("spark-caption");
-  caption.hidden = false;
-  caption.textContent =
-    `tokens per cycle \u00B7 last ${values.length} \u00B7 now ${values[values.length - 1]}`;
-}
-
-function renderPositions(positions) {
-  const host = $("positions");
-  if (!positions.length) {
-    host.innerHTML = `<div class="empty">
-      <div class="empty-t">No open positions</div>
-      <div class="empty-b">The scanner buys only what clears every filter.
-        Most cycles that is nothing.</div></div>`;
-    return;
-  }
-  host.innerHTML = positions.map(p => {
-    const lo = p.stop_price, hi = p.target_price;
-    const span = (hi - lo) || 1;
-    const entryAt = Math.min(1, Math.max(0, (p.entry_price - lo) / span));
-    const peak = Math.min(1, Math.max(0, (p.peak_price - lo) / span));
-    const gain = p.entry_price > 0 ? (p.peak_price / p.entry_price - 1) : 0;
-    const flagged = p.unverified && p.unverified.length;
-    return `
-    <div class="row">
-      <div class="row-main">
-        <div class="row-top">
-          <span class="sym">${escapeHtml(p.symbol)}</span>
-          ${flagged ? `<span class="pill warn" title="${
-            escapeHtml(p.unverified.join("; "))}">unverified</span>` : ""}
-          ${p.took_profit ? '<span class="pill ok">half banked</span>' : ""}
-        </div>
-        <div class="row-sub">
-          $${price(p.entry_price)} entry · held ${heldFor(p.age_hours)}
-        </div>
-      </div>
-      <div class="row-val">
-        <div class="row-val-v">${money(p.cost_usd)}</div>
-        <div class="row-val-n ${gain > 0 ? "up" : gain < 0 ? "down" : ""}">
-          peak ${gain > 0 ? "▲ +" : gain < 0 ? "▼ " : ""}${(gain * 100).toFixed(1)}%
-        </div>
-      </div>
-      <div class="track">
-        <div class="track-fill" style="width:${(peak * 100).toFixed(1)}%"></div>
-        <div class="track-mark" style="left:${(entryAt * 100).toFixed(1)}%"></div>
-      </div>
-    </div>`;
-  }).join("");
-}
-
-// --- Tables --------------------------------------------------------------
-function renderClosed(rows) {
-  const host = $("closed");
-  if (!rows.length) {
-    host.innerHTML = `<div class="empty">
-      <div class="empty-t">No completed trades</div>
-      <div class="empty-b">Results land here once a position closes. Under
-        about 30 trades the numbers are still noise.</div>
-    </div>`;
-    return;
-  }
-  host.innerHTML = `<table><thead><tr>
-      <th>Token</th><th>Result</th><th>Exit</th><th>When</th>
-    </tr></thead><tbody>` + rows.map(r => {
-    const positive = r.realized_usd > 0;
-    const glyph = positive ? "▲" : r.realized_usd < 0 ? "▼" : "";
-    const cls = positive ? "pos" : r.realized_usd < 0 ? "neg" : "";
-    return `<tr>
-      <td class="num">${escapeHtml(r.symbol)}</td>
-      <td class="num ${cls}">${glyph} ${positive ? "+" : ""}${money(r.realized_usd)}</td>
-      <td class="muted">${escapeHtml(r.reason.replace(/_/g, " "))}</td>
-      <td class="muted">${ago(Date.now() / 1000 - r.closed_at)}</td>
-    </tr>`;
-  }).join("") + "</tbody></table>";
-}
-
-function renderFills(rows) {
-  const host = $("fills");
-  if (!rows.length) {
-    host.innerHTML = `<div class="empty">
-      <div class="empty-t">No orders yet</div>
-      <div class="empty-b">Every buy and sell lands here with price, size and
-        reason.</div>
-    </div>`;
-    return;
-  }
-  host.innerHTML = `<table><thead><tr>
-      <th>Side</th><th>Token</th><th>Price</th><th>Size</th><th>Net cost</th><th>Why</th>
-    </tr></thead><tbody>` + rows.map(r => `<tr>
-      <td><span class="side ${r.side}">${r.side.toUpperCase()}</span></td>
-      <td class="num">${escapeHtml(r.symbol)}</td>
-      <td class="num">$${price(r.price)}</td>
-      <td class="num">${money(r.usd)}</td>
-      <td class="num">${money(r.fee)}</td>
-      <td class="muted">${escapeHtml((r.reason || "").replace(/_/g, " "))}</td>
-    </tr>`).join("") + "</tbody></table>";
+function signedText(value, format) {
+  const text = format ? format(value) : money(value);
+  if (!value) return `<span class="muted">${escapeHtml(text)}</span>`;
+  const cls = value > 0 ? "pos" : "neg";
+  const plus = value > 0 ? "+" : "";
+  return `<span class="${cls}">${arrow(value)} ${plus}${escapeHtml(text)}</span>`;
 }
 
 function escapeHtml(text) {
-  return String(text).replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
+  return String(text === null || text === undefined ? "" : text)
+    .replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
 }
 
-// --- Poll ----------------------------------------------------------------
-let lastOk = 0;
-let lastState = {};
+function titleCase(text) {
+  return String(text || "").replace(/_/g, " ");
+}
 
-// Served by the bot: read the live endpoint. Served statically (GitHub
-// Pages), there is no endpoint, so fall back to the committed snapshot.
+// --- Nav strip -----------------------------------------------------------
+
+// A scheduled runner fires every five minutes and GitHub drops most of them
+// under load, so "quiet" and "stopped" look identical unless the page says
+// how late the last scan is.
+function renderStrip(state) {
+  const activity = state.activity;
+  const seconds = activity ? Date.now() / 1000 - activity.at : null;
+  const overdue = seconds !== null && seconds > 1800;
+
+  const scanned = state.scanner || [];
+  const up = scanned.filter(t => t.change_5m > 0).length;
+  const breadth = scanned.length ? up / scanned.length : null;
+  const market = $("market");
+  if (breadth === null) {
+    market.textContent = "";
+  } else {
+    const mood = breadth >= 0.6 ? "RISK-ON" : breadth >= 0.4 ? "MIXED" : "RISK-OFF";
+    market.innerHTML = `<span class="label">MKT</span> ${mood} ` +
+      `<span class="muted">${up}/${scanned.length} up 5m</span>`;
+  }
+
+  const funnelMeta = $("funnel-meta");
+  if (!activity) {
+    funnelMeta.textContent = "waiting for the first scan";
+  } else if (overdue) {
+    funnelMeta.innerHTML = `<span class="neg">overdue · last scan ` +
+      `${escapeHtml(ago(seconds))}</span>`;
+  } else {
+    funnelMeta.textContent = "last scan " + ago(seconds);
+  }
+}
+
+function renderProgress(state) {
+  const run = state.run || {};
+  const element = $("progress");
+  if (!run.cycles) {
+    element.textContent = "No cycles recorded yet.";
+    return;
+  }
+  const day = Math.min(RUN_DAYS, Math.floor(run.days) + 1);
+  element.innerHTML =
+    `<b>DAY ${day} of ${RUN_DAYS}</b> · ${run.cycles.toLocaleString()} cycles ` +
+    `· ${run.tokens_seen.toLocaleString()} token reads in the retained window.`;
+}
+
+function renderTicker(state) {
+  const tokens = (state.scanner || []).slice(0, 14);
+  const element = $("ticker");
+  element.parentNode.hidden = !tokens.length;
+  if (!tokens.length) {
+    element.textContent = "";
+    return;
+  }
+  const items = tokens.map(t => {
+    const change = t.change_24h === null || t.change_24h === undefined
+      ? t.change_5m : t.change_24h;
+    // Escaped rather than literal so the marquee keeps its glyphs even if
+    // the file is ever served with the wrong charset.
+    const glyph = change >= 0 ? "\u25B2" : "\u25BC";
+    const cls = change >= 0 ? "pos" : "neg";
+    return `<span class="tick"><b>${escapeHtml(t.symbol)}</b>` +
+      `$${escapeHtml(price(t.price))} ` +
+      `<span class="${cls}">${glyph} ${change >= 0 ? "+" : ""}` +
+      `${escapeHtml(pct(change))}</span></span>`;
+  }).join("");
+  // Doubled so the marquee wraps without a gap at the seam.
+  element.innerHTML = items + items;
+}
+
+// --- Scanner -------------------------------------------------------------
+
+// Which cards are expanded, by mint. Kept outside the render so a refresh
+// does not fold a card the reader just opened.
+const expanded = new Set();
+let lastScanAt = null;
+let showAll = false;
+const CARDS_SHOWN = 8;
+
+const BADGE_CLASS = {
+  "LOW RISK": "good", "DANGER": "bad", "HIGH MOMENTUM": "hot",
+  "AI SIGNAL": "hot", "BUY PRESSURE": "good", "HIGH VOLUME": "hot",
+  "WATCH": "", "NEW PAIR": "warn", "HELD": "hot",
+};
+
+function riskClass(band) {
+  if (band === "LOW") return "good";
+  if (band === "MODERATE") return "";
+  if (band === "ELEVATED") return "warn";
+  return "bad";
+}
+
+function factorMark(level) {
+  return level === "ok" ? "✓" : level === "danger" ? "✕"
+    : level === "warn" ? "!" : "?";
+}
+
+function cardMarkup(token) {
+  const open = expanded.has(token.mint);
+  const change = token.change_24h === null || token.change_24h === undefined
+    ? token.change_5m : token.change_24h;
+  const badges = (token.badges || []).map(b =>
+    `<span class="badge ${BADGE_CLASS[b] === undefined ? "" : BADGE_CLASS[b]}">` +
+    `${escapeHtml(b)}</span>`).join("");
+
+  const flow = token.buys_5m + token.sells_5m;
+  const buyShare = flow ? token.buys_5m / flow : 0;
+
+  let detail = "";
+  if (open) {
+    const factors = (token.risk_factors || []).map(f =>
+      `<div class="factor"><span class="fmark ${escapeHtml(f.level)}">` +
+      `${factorMark(f.level)}</span><span class="fname">` +
+      `${escapeHtml(f.name)}</span><span class="fdetail">` +
+      `${escapeHtml(f.detail)}</span></div>`).join("");
+    const why = (token.why || []).length
+      ? `<ul class="why">` + token.why.map(w =>
+          `<li>${escapeHtml(w)}</li>`).join("") + `</ul>`
+      : `<div class="note">Scored zero: nothing in the entry model fired.</div>`;
+    const blocked = (token.blocked_by || []).length
+      ? `<div class="note neg">Blocked: ` +
+        escapeHtml(token.blocked_by.join("; ")) + `</div>`
+      : "";
+    detail = `<div class="detail">${factors}${why}${blocked}` +
+      `<div class="note">Age ${escapeHtml(heldFor(token.age_hours))} · ` +
+      `5m volume ${escapeHtml(compact(token.volume_5m))} · ` +
+      `1h ${escapeHtml(pct(token.change_1h))}</div></div>`;
+  }
+
+  const cls = token.signal === "HELD" ? "held"
+    : token.signal === "BUY" ? "buy"
+    : token.signal === "AVOID" ? "avoid" : "";
+
+  return `<button type="button" class="card ${cls}${open ? " open" : ""}"
+      data-mint="${escapeHtml(token.mint)}"
+      aria-expanded="${open ? "true" : "false"}">
+    <div class="crow">
+      <span class="sym">${escapeHtml(token.symbol)}</span>
+      <span class="cprice">$${escapeHtml(price(token.price))}</span>
+    </div>
+    <div class="crow">
+      <span class="chg">${signedText(change, v => pct(v))}
+        <span class="muted">24h</span></span>
+      <span class="cprice chg">${signedText(token.change_5m, v => pct(v))}
+        <span class="muted">5m</span></span>
+    </div>
+    <div class="badges">${badges}</div>
+    <div class="cstats">
+      <div><span>Mkt cap</span><b>${escapeHtml(compact(token.fdv))}</b></div>
+      <div><span>Liquidity</span><b>${escapeHtml(compact(token.liquidity))}</b></div>
+      <div><span>Vol 24h</span><b>${escapeHtml(compact(token.volume_24h))}</b></div>
+      <div><span>Buy/sell</span><b>${token.buys_5m}/${token.sells_5m}</b></div>
+    </div>
+    <div class="meters">
+    <div class="meter">
+      <div class="mtop"><span>Confidence</span><b>${pct(token.confidence, 0)}</b></div>
+      <div class="track">${bar("fill", Math.round(
+        Math.min(1, token.confidence) * 100))}</div>
+    </div>
+    <div class="meter">
+      <div class="mtop"><span>Risk ${escapeHtml(token.risk_band)}</span>
+        <b>${token.risk_score}/100 safe</b></div>
+      <div class="track">${bar("fill " + riskClass(token.risk_band),
+        token.risk_score)}</div>
+    </div>
+    <div class="meter">
+      <div class="mtop"><span>Buy pressure</span>
+        <b>${pct(buyShare, 0)} of ${flow} trades</b></div>
+      <div class="track">${bar(buyShare >= 0.5 ? "fill good" : "fill bad",
+        Math.round(buyShare * 100))}</div>
+    </div>
+    </div>
+    ${detail}
+  </button>`;
+}
+
+function renderCards(state, force) {
+  const tokens = state.scanner || [];
+  const container = $("cards");
+  const at = state.activity ? state.activity.at : null;
+  // Rebuilding identical markup every five seconds drops hover and makes
+  // the panel flicker, so redraw only on a new scan or a card toggle.
+  if (!force && at !== null && at === lastScanAt && container.children.length) {
+    return;
+  }
+  lastScanAt = at;
+  if (!tokens.length) {
+    container.innerHTML = `<div class="empty">Scanner has not published a
+      cycle yet. Token reads appear as soon as the next scan finishes.</div>`;
+    $("scan-meta").textContent = "";
+    $("cards-note").textContent = "";
+    return;
+  }
+  // Two rows by default. Twenty-four cards at once buries everything below
+  // the scanner, and the tail is the weakest reads anyway.
+  const shown = showAll ? tokens : tokens.slice(0, CARDS_SHOWN);
+  container.innerHTML = shown.map(cardMarkup).join("");
+
+  const more = $("more");
+  more.hidden = tokens.length <= CARDS_SHOWN;
+  more.textContent = showAll
+    ? "SHOW TOP " + CARDS_SHOWN
+    : "SHOW ALL " + tokens.length + " READS";
+
+  const held = tokens.filter(t => t.signal === "HELD").length;
+  const buys = tokens.filter(t => t.signal === "BUY").length;
+  $("scan-meta").textContent =
+    `${tokens.length} reads · ${held} held · ${buys} tradable`;
+  $("cards-note").innerHTML =
+    `Every figure is measured from the pair feed at scan time. Tap a card for ` +
+    `its risk breakdown. Contract checks read <b>not checked</b> when the ` +
+    `cycle had no free slot to spend a lookup on.`;
+}
+
+$("more").addEventListener("click", () => {
+  showAll = !showAll;
+  renderCards(lastState, true);
+});
+
+// Delegated so it survives every re-render.
+$("cards").addEventListener("click", event => {
+  const card = event.target.closest(".card");
+  if (!card) return;
+  const mint = card.getAttribute("data-mint");
+  if (expanded.has(mint)) expanded.delete(mint); else expanded.add(mint);
+  renderCards(lastState, true);
+});
+
+// --- AI signals ----------------------------------------------------------
+
+function renderSignals(state) {
+  const tokens = (state.scanner || []).filter(
+    t => t.signal === "BUY" || t.signal === "HELD" || t.confidence > 0);
+  const container = $("signals");
+  const threshold = state.risk && state.risk.min_entry_score;
+  $("threshold").textContent = threshold === undefined || threshold === null
+    ? "the profile's entry score" : pct(threshold, 0);
+
+  if (!tokens.length) {
+    container.innerHTML = `<div class="empty">No token cleared the model this
+      cycle. That is the normal outcome — most scans end with nothing.</div>`;
+    $("signal-meta").textContent = "";
+    return;
+  }
+  const top = tokens.slice(0, 4);
+  container.innerHTML = top.map(t => {
+    const why = (t.why || []).slice(0, 3).map(w =>
+      `<li>${escapeHtml(w)}</li>`).join("");
+    const blocked = (t.blocked_by || []).length
+      ? `<div class="note neg">Held back by: ` +
+        escapeHtml(t.blocked_by.join("; ")) + `</div>` : "";
+    return `<div class="signal ${escapeHtml(t.signal)}">
+      <div class="sigtop">
+        <span class="verdict ${escapeHtml(t.signal)}">${escapeHtml(t.signal)}</span>
+        <span class="sym">${escapeHtml(t.symbol)}</span>
+        <span class="conf">${pct(t.confidence, 0)}</span>
+      </div>
+      <ul class="why">${why}</ul>
+      <div class="note">Risk ${escapeHtml(t.risk_band)} ·
+        ${escapeHtml(compact(t.liquidity))} pool ·
+        ${escapeHtml(compact(t.fdv))} cap</div>
+      ${blocked}
+    </div>`;
+  }).join("");
+  const buys = tokens.filter(t => t.signal === "BUY").length;
+  $("signal-meta").textContent = buys
+    ? `${buys} of ${tokens.length} scored tradable`
+    : `none of ${tokens.length} scored tradable`;
+}
+
+// --- Risk monitor --------------------------------------------------------
+
+function gauge(label, value, note, level) {
+  const width = Math.round(Math.min(1, Math.max(0, value)) * 100);
+  return `<div class="gauge">
+    <div class="gtop"><span>${escapeHtml(label)}</span><b>${pct(value)}</b></div>
+    <div class="gtrack">${bar("gfill " + level, width)}</div>
+    <div class="gnote">${escapeHtml(note)}</div>
+  </div>`;
+}
+
+// A bar of nothing is nothing: the minimum width that keeps a 1% reading
+// visible would otherwise draw a coloured nub at zero.
+function bar(cls, percent) {
+  if (percent <= 0) return "";
+  return `<i class="${cls}" style="width:${percent}%"></i>`;
+}
+
+function renderRisk(state) {
+  const r = state.risk_monitor;
+  if (!r) { $("gauges").innerHTML = ""; $("flags").innerHTML = ""; return; }
+
+  const exposureLevel = r.exposure_pct > 0.6 ? "bad"
+    : r.exposure_pct > 0.4 ? "warn" : "";
+  const budgetLevel = r.daily_budget_used_pct > 0.7 ? "bad"
+    : r.daily_budget_used_pct > 0.4 ? "warn" : "";
+  const concLevel = r.concentration_pct > 0.2 ? "bad"
+    : r.concentration_pct > 0.12 ? "warn" : "";
+
+  $("gauges").innerHTML =
+    gauge("Capital at risk", r.exposure_pct,
+      `${money(state.open_cost)} in ${r.slots_used} of ${r.slots} slots`,
+      exposureLevel) +
+    gauge("Daily loss budget", r.daily_budget_used_pct,
+      `${money(r.lost_today_usd)} of ${money(r.daily_loss_limit_usd)} spent · ` +
+      `the breaker halts trading at 100%`, budgetLevel) +
+    gauge("Largest position", r.concentration_pct,
+      "share of equity in a single token", concLevel) +
+    gauge("If every stop fired", r.stop_risk_pct,
+      `${money(r.stop_risk_usd)} — before exit slippage, so the real ` +
+      `number is worse`, r.stop_risk_pct > 0.15 ? "warn" : "");
+
+  const flags = [];
+  if (r.halted) {
+    flags.push(["bad", "■", "Trading halted — " + r.halt_reason]);
+  }
+  if (r.unverified_count) {
+    flags.push(["warn", "!", `${r.unverified_count} position(s) bought ` +
+      `without passing contract checks: ${r.unverified_symbols.join(", ")}. ` +
+      `A honeypot would still appear to sell normally in paper mode.`]);
+  }
+  if (r.danger_count) {
+    flags.push(["bad", "✕", `${r.danger_count} held token(s) now read DANGER: ` +
+      `${r.danger_symbols.join(", ")}.`]);
+  }
+  if (r.unpriced_count) {
+    flags.push(["warn", "?", `${r.unpriced_count} position(s) had no quote in ` +
+      `the last scan and are carried at cost.`]);
+  }
+  if (r.loss_streak >= 3) {
+    flags.push(["warn", "!", `Longest losing streak: ${r.loss_streak} trades ` +
+      `in a row.`]);
+  }
+  if (!flags.length) {
+    flags.push(["", "✓", "No open risk flags. Exposure, concentration and the " +
+      "daily budget are all inside their limits."]);
+  }
+  $("flags").innerHTML = flags.map(f =>
+    `<div class="flag ${f[0]}"><span class="fico">${f[1]}</span>` +
+    `<span>${escapeHtml(f[2])}</span></div>`).join("");
+
+  const positions = (state.positions || [])
+    .slice()
+    .sort((a, b) => b.value_usd - a.value_usd);
+  $("expo").innerHTML = positions.length
+    ? `<div class="label">Where the money is</div>` + positions.map(p => {
+        const share = r.exposure_pct && state.equity_usd
+          ? p.value_usd / state.equity_usd : 0;
+        return `<div class="erow">
+          <span><b>${escapeHtml(p.symbol)}</b>
+            <span class="muted">${escapeHtml(p.risk_band || "unchecked")}</span></span>
+          <span class="num">${escapeHtml(money(p.value_usd))}</span>
+          <span class="num muted">${pct(share)}</span>
+          <span class="ebar"><i style="width:${Math.round(
+            Math.min(1, share / 0.25) * 100)}%"></i></span>
+        </div>`;
+      }).join("")
+    : "";
+
+  $("risk-meta").textContent = `drawdown ${pct(r.max_drawdown)}`;
+}
+
+// --- Activity feed -------------------------------------------------------
+
+function stamp(seconds) {
+  const date = new Date(seconds * 1000);
+  return date.toISOString().slice(11, 19);
+}
+
+function renderTerminal(state) {
+  const events = state.events || [];
+  const container = $("term");
+  if (!events.length) {
+    container.innerHTML = `<div class="empty">No activity recorded yet. Each
+      scan, order and rejection is written here as it happens.</div>`;
+    $("term-meta").textContent = "";
+    return;
+  }
+  container.innerHTML = events.map(e =>
+    `<div class="line ${escapeHtml(e.kind)}">
+      <span class="ts">${escapeHtml(stamp(e.at))}</span>
+      <span class="kind ${escapeHtml(e.kind)}">${escapeHtml(e.kind.toUpperCase())}</span>
+      <span class="msg">${escapeHtml(e.message)}</span>
+    </div>`).join("");
+  const trades = events.filter(
+    e => e.kind === "buy" || e.kind === "sell" || e.kind === "reduce").length;
+  $("term-meta").textContent = `${events.length} entries · ${trades} orders`;
+}
+
+// --- Scan pipeline -------------------------------------------------------
+
+function renderFunnel(state) {
+  const a = state.activity;
+  const container = $("funnel");
+  if (!a) {
+    container.innerHTML = `<div class="empty">Waiting for the first scan.</div>`;
+    $("reasons").innerHTML = "";
+    return;
+  }
+  const steps = [
+    ["seen", a.scanned],
+    ["shortlist", a.shortlisted],
+    ["verified", a.candidates],
+    ["bought", a.entered],
+  ];
+  container.innerHTML = steps.map((s, i) =>
+    `<div class="step"><div class="k">${i ? "▸ " : ""}${s[0]}</div>
+      <div class="v">${s[1].toLocaleString()}</div></div>`).join("");
+
+  const rejections = a.rejections || {};
+  const entries = Object.keys(rejections)
+    .map(k => [k, rejections[k]])
+    .sort((x, y) => y[1] - x[1])
+    .slice(0, 6);
+  if (!entries.length) {
+    $("reasons").innerHTML = "";
+    return;
+  }
+  const top = entries[0][1] || 1;
+  $("reasons").innerHTML =
+    `<div class="label">Why the rest were turned down</div>` +
+    entries.map(e => `<div class="reason">
+      <span>${escapeHtml(titleCase(e[0]))}</span>
+      <span class="num">${e[1]}</span>
+      <span class="rbar"><i style="width:${Math.round(e[1] / top * 100)}%"></i></span>
+    </div>`).join("");
+}
+
+// --- Positions -----------------------------------------------------------
+
+function ladder(position) {
+  // Stop and target anchor the ends; the marks are where the price and the
+  // peak actually sit between them.
+  const low = position.stop_price;
+  const high = position.target_price;
+  const span = high - low;
+  if (!(span > 0)) return "";
+  const at = value => Math.max(0, Math.min(100, (value - low) / span * 100));
+  const now = position.priced ? position.price : position.entry_price;
+  return `<div class="ladder" title="stop ${price(low)} · now ${price(now)} ` +
+    `· peak ${price(position.peak_price)} · target ${price(high)}">
+      <i class="lstop"></i>
+      <i class="lpeak" style="left:${at(position.peak_price)}%"></i>
+      <i class="lnow" style="left:${at(now)}%"></i>
+      <i class="ltarget"></i>
+    </div>`;
+}
+
+function renderPositions(positions) {
+  const container = $("positions");
+  if (!positions.length) {
+    container.innerHTML = `<div class="empty">No open positions. The bot buys
+      only when a token clears every check and scores above threshold.</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="scroll"><table class="rtable">
+    <thead><tr>
+      <th>Token</th><th class="num">Entry</th><th class="num">Price</th>
+      <th class="num">Value</th><th class="num">P&amp;L</th><th class="num">Held</th>
+    </tr></thead><tbody>` + positions.map(p => {
+      const flags = [];
+      if (p.unverified && p.unverified.length) flags.push(
+        `<span class="badge warn" title="${escapeHtml(p.unverified.join('; '))}">UNVERIFIED</span>`);
+      if (p.risk_band === "DANGER") flags.push(`<span class="badge bad">DANGER</span>`);
+      if (p.took_profit) flags.push(`<span class="badge good">TP TAKEN</span>`);
+      if (!p.priced) flags.push(`<span class="badge">NO QUOTE</span>`);
+      return `<tr>
+        <td><b>${escapeHtml(p.symbol)}</b>${flags.length
+          ? `<div class="badges">${flags.join("")}</div>` : ""}
+          ${ladder(p)}</td>
+        <td class="num" data-l="Entry">$${escapeHtml(price(p.entry_price))}</td>
+        <td class="num" data-l="Price">${p.priced
+          ? "$" + escapeHtml(price(p.price)) : '<span class="muted">—</span>'}</td>
+        <td class="num" data-l="Value">${escapeHtml(money(p.value_usd))}</td>
+        <td class="num" data-l="P&L"><span>${signedText(p.unrealized_usd)}</span><br>
+          <span class="muted">${signedText(p.unrealized_pct, v => pct(v))}</span></td>
+        <td class="num" data-l="Held">${escapeHtml(heldFor(p.age_hours))}</td>
+      </tr>`;
+    }).join("") + `</tbody></table></div>`;
+}
+
+// --- Closed trades and orders --------------------------------------------
+
+function renderClosed(closed) {
+  const container = $("closed");
+  if (!closed.length) {
+    container.innerHTML = `<div class="empty">No completed trades yet.</div>`;
+    return;
+  }
+  container.innerHTML = `<table class="rtable"><thead><tr>
+    <th>Token</th><th>Exit</th><th class="num">Result</th><th class="num">When</th>
+  </tr></thead><tbody>` + closed.map(c => `<tr>
+    <td><b>${escapeHtml(c.symbol)}</b></td>
+    <td class="muted" data-l="Exit">${escapeHtml(titleCase(c.reason))}</td>
+    <td class="num" data-l="Result">${signedText(c.realized_usd)}</td>
+    <td class="num muted" data-l="When">${escapeHtml(ago(Date.now() / 1000 - c.closed_at))}</td>
+  </tr>`).join("") + `</tbody></table>`;
+}
+
+function renderFills(fills) {
+  const container = $("fills");
+  if (!fills.length) {
+    container.innerHTML = `<div class="empty">No orders yet.</div>`;
+    return;
+  }
+  container.innerHTML = `<table class="rtable"><thead><tr>
+    <th>Order</th><th class="num">Price</th>
+    <th class="num">Size</th><th class="num">Fee</th><th>Why</th>
+  </tr></thead><tbody>` + fills.map(f => `<tr>
+    <td><span class="side ${escapeHtml(f.side)}">${escapeHtml(f.side.toUpperCase())}</span>
+      <b>${escapeHtml(f.symbol)}</b></td>
+    <td class="num" data-l="Price">$${escapeHtml(price(f.price))}</td>
+    <td class="num" data-l="Size">${escapeHtml(money(f.usd))}</td>
+    <td class="num muted" data-l="Fee">${escapeHtml(money(f.fee))}</td>
+    <td class="muted" data-l="Why">${escapeHtml(titleCase(f.reason))}</td>
+  </tr>`).join("") + `</tbody></table>`;
+}
+
+// --- Canvas --------------------------------------------------------------
+
+function ink(name) {
+  return window.getComputedStyle(document.documentElement)
+    .getPropertyValue(name).trim();
+}
+
+// Canvas is sized in CSS pixels but drawn in device pixels, or every line is
+// soft on a phone.
+function setup(canvas) {
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || canvas.parentNode.clientWidth || 300;
+  const height = canvas.height / (canvas._ratio || 1) || 100;
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  canvas.style.height = height + "px";
+  canvas._ratio = ratio;
+  const context = canvas.getContext("2d");
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  return { context: context, width: width, height: height };
+}
+
+function drawSpark(history) {
+  const canvas = $("spark");
+  if (!canvas) return;
+  const series = (history || []).map(h => h.scanned);
+  const view = setup(canvas);
+  const context = view.context;
+  if (series.length < 2) {
+    context.fillStyle = ink("--ink-3");
+    context.font = "10px " + ink("--mono");
+    context.fillText("waiting for scan history", 0, view.height / 2);
+    return;
+  }
+  const pad = 4;
+  const top = Math.max.apply(null, series) || 1;
+  const step = (view.width - pad * 2) / (series.length - 1);
+  const y = value => view.height - pad - (value / top) * (view.height - pad * 2);
+
+  // Filled area under the line, so the panel reads as a chart at a glance
+  // without another axis of colour.
+  context.beginPath();
+  context.moveTo(pad, view.height);
+  series.forEach((value, i) => context.lineTo(pad + i * step, y(value)));
+  context.lineTo(pad + (series.length - 1) * step, view.height);
+  context.closePath();
+  const gradient = context.createLinearGradient(0, 0, 0, view.height);
+  gradient.addColorStop(0, ink("--neon-wash"));
+  gradient.addColorStop(1, "transparent");
+  context.fillStyle = gradient;
+  context.fill();
+
+  context.beginPath();
+  series.forEach((value, i) => {
+    const px = pad + i * step;
+    if (i === 0) context.moveTo(px, y(value)); else context.lineTo(px, y(value));
+  });
+  context.strokeStyle = ink("--neon");
+  context.lineWidth = 1.5;
+  context.stroke();
+
+  // Entries land on the same axis, so mark where the bot actually bought.
+  context.fillStyle = ink("--up");
+  (history || []).forEach((h, i) => {
+    if (!h.entered) return;
+    context.beginPath();
+    context.arc(pad + i * step, y(h.scanned), 2.5, 0, Math.PI * 2);
+    context.fill();
+  });
+
+  const entries = (history || []).filter(h => h.entered).length;
+  $("spark-cap").textContent =
+    `Tokens seen per cycle — last ${series.length}, peak ${top}` +
+    (entries ? ` · bought on ${entries} of them, marked` : "");
+}
+
+function drawChart(equity, start) {
+  const canvas = $("chart");
+  if (!canvas || !equity || equity.length < 2) return;
+  const view = setup(canvas);
+  const context = view.context;
+  const padL = 52, padR = 8, padT = 10, padB = 18;
+  const low = Math.min.apply(null, equity.concat([start]));
+  const high = Math.max.apply(null, equity.concat([start]));
+  const range = (high - low) || 1;
+  const plotW = view.width - padL - padR;
+  const plotH = view.height - padT - padB;
+  const x = i => padL + (i / (equity.length - 1)) * plotW;
+  const y = v => padT + (1 - (v - low) / range) * plotH;
+
+  context.font = "9px " + ink("--mono");
+  context.fillStyle = ink("--ink-3");
+  context.strokeStyle = ink("--edge-soft");
+  context.lineWidth = 1;
+  for (let g = 0; g <= 3; g++) {
+    const value = low + (range * g) / 3;
+    const py = Math.round(y(value)) + 0.5;
+    context.beginPath();
+    context.moveTo(padL, py);
+    context.lineTo(view.width - padR, py);
+    context.stroke();
+    context.fillText("$" + Math.round(value).toLocaleString(), 0, py + 3);
+  }
+
+  // Starting capital: the line every result is measured against.
+  const base = Math.round(y(start)) + 0.5;
+  context.save();
+  context.setLineDash([3, 3]);
+  context.strokeStyle = ink("--ink-3");
+  context.beginPath();
+  context.moveTo(padL, base);
+  context.lineTo(view.width - padR, base);
+  context.stroke();
+  context.restore();
+
+  context.beginPath();
+  equity.forEach((value, i) => {
+    if (i === 0) context.moveTo(x(i), y(value)); else context.lineTo(x(i), y(value));
+  });
+  context.strokeStyle = ink("--neon");
+  context.lineWidth = 1.8;
+  context.lineJoin = "round";
+  context.stroke();
+
+  // One mark per closed trade, coloured by outcome and shaped by direction,
+  // so a win is distinguishable without relying on hue.
+  for (let i = 1; i < equity.length; i++) {
+    const won = equity[i] >= equity[i - 1];
+    context.fillStyle = won ? ink("--up") : ink("--down");
+    const px = x(i), py = y(equity[i]);
+    context.beginPath();
+    if (won) {
+      context.moveTo(px, py - 3.4);
+      context.lineTo(px + 3, py + 2.2);
+      context.lineTo(px - 3, py + 2.2);
+    } else {
+      context.moveTo(px, py + 3.4);
+      context.lineTo(px + 3, py - 2.2);
+      context.lineTo(px - 3, py - 2.2);
+    }
+    context.closePath();
+    context.fill();
+  }
+}
+
+// --- Theme ---------------------------------------------------------------
+
+// Three states, matching how the page is written: follow the system, or
+// pin one palette. Stored per browser; a blocked store just means the
+// choice does not survive a reload.
+function applyTheme(value) {
+  if (value === "dark" || value === "light") {
+    document.documentElement.setAttribute("data-theme", value);
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  $("theme").textContent = value === "dark" ? "DARK"
+    : value === "light" ? "LIGHT" : "THEME";
+  try { window.localStorage.setItem("memebot-theme", value); } catch (e) { /* private mode */ }
+  if (lastState.equity) drawChart(lastState.equity, lastState.starting_bankroll);
+  if (lastState.scan_history) drawSpark(lastState.scan_history);
+}
+
+let theme = "system";
+try { theme = window.localStorage.getItem("memebot-theme") || "system"; }
+catch (e) { theme = "system"; }
+applyTheme(theme);
+
+$("theme").addEventListener("click", () => {
+  theme = theme === "system" ? "dark" : theme === "dark" ? "light" : "system";
+  applyTheme(theme);
+});
+
+function tickClock() {
+  $("clock").textContent = new Date().toISOString().slice(11, 19) + " UTC";
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+// --- Poll ----------------------------------------------------------------
+
+// Served by the bot: read the live endpoint. Served as a static file on
+// GitHub Pages there is no endpoint, so fall back to the committed snapshot.
 // GitHub Pages serves through a CDN that caches for minutes, and `no-store`
 // governs only the browser's own cache. A unique query string per request is
 // what actually reaches the newest snapshot.
@@ -826,7 +1493,6 @@ function resolveEndpoint() {
       return endpoint;
     })
     .catch(() => {
-      // Served statically: no endpoint, read the committed snapshot.
       endpoint = "state.json";
       staticMode = true;
       return endpoint;
@@ -847,88 +1513,7 @@ async function refresh() {
     if (state.error) throw new Error(state.error);
     lastOk = Date.now();
     lastState = state;
-
-    $("mode").textContent = state.mode.toUpperCase();
-    if (state.profile) {
-      const badge = $("profile");
-      badge.hidden = false;
-      const r = state.risk || {};
-      badge.textContent = state.profile.toUpperCase();
-      badge.title = r.per_trade_pct
-        ? `${(r.per_trade_pct * 100).toFixed(0)}% per trade · ` +
-          `${(r.stop_pct * 100).toFixed(0)}% stop · ` +
-          `${r.target_multiple}x target`
-        : "";
-    }
-    const equity = state.bankroll;
-    const change = equity - state.starting_bankroll;
-
-    $("equity").textContent = money(equity);
-    if (change === 0) {
-      $("equity-note").textContent = "unchanged · nothing traded yet";
-      $("equity-note").classList.remove("pos", "neg");
-    } else {
-      signed($("equity-note"), change, v => money(v) +
-        ` (${change >= 0 ? "+" : ""}${pct(change / state.starting_bankroll)})`);
-    }
-
-    signed($("today"), state.realized_today);
-    $("today-note").textContent =
-      `limit ${money(-state.daily_loss_limit)}`;
-
-    $("open").textContent = state.positions.length + "/" + state.max_positions;
-    $("open-note").textContent = money(state.open_cost) + " committed";
-
-    const s = state.stats;
-    $("tradecount").textContent = s.trades;
-    $("tradecount-note").textContent = s.trades
-      ? money(s.realized_usd) + " realized" : "none closed";
-    $("winrate").textContent = s.trades ? pct(s.win_rate) : "—";
-    $("winrate-note").textContent = s.trades
-      ? `${s.wins}W / ${s.losses}L` : "no closed trades";
-
-    const advisory = state.verification === "advisory";
-    $("verify").hidden = !advisory;
-    $("verify").title = advisory
-      ? "Contract checks are recorded but do not block trades. A honeypot "
-      + "bought here will appear to sell normally, because the simulator "
-      + "cannot know the real chain would refuse."
-      : "";
-
-    $("halt").classList.toggle("on", !!state.halted);
-    $("halt-reason").textContent = state.halt_reason || "";
-
-    $("chart-meta").textContent = s.trades
-      ? `${s.trades} trades · max drawdown ${pct(s.max_drawdown)}` : "";
-    $("pos-meta").textContent = state.positions.length
-      ? `${state.positions.length} held` : "";
-    $("closed-meta").textContent = s.trades
-      ? `expectancy ${money(s.expectancy_usd)}/trade` : "";
-
-    renderStrip(state);
-    renderProgress(state);
-    renderTicker(state);
-    renderScan(state.activity, state.positions, state.max_positions);
-    drawSpark(state.scan_history);
-    // An empty plot is a large block of nothing; show it once there is a
-    // curve to draw.
-    $("chart-card").hidden = s.trades === 0;
-    if (s.trades > 0) drawChart(state.equity, state.starting_bankroll);
-    renderPositions(state.positions);
-    renderClosed(state.closed);
-    renderFills(state.recent_fills);
-    $("fills-note").hidden = state.recent_fills.length === 0;
-
-    $("foot").innerHTML = (state.mode === "paper"
-      ? "Paper trading — no real funds are at risk."
-      : "LIVE MODE — real funds.")
-      + "<br>Every figure is read from the bot's own database."
-      + (advisory
-        ? "<br><br>Verification is advisory: unverified tokens are bought and "
-        + "flagged. A honeypot would appear to sell normally here, so profit "
-        + "on a flagged position is an overestimate rather than a riskier "
-        + "version of the same number."
-        : "");
+    paint(state);
   } catch (error) {
     $("updated").innerHTML =
       '<span class="dot stale"></span>lost contact with the bot — retrying';
@@ -948,8 +1533,125 @@ async function refresh() {
     (age < 2 ? "just now" : ago(age));
 }
 
+function paint(state) {
+  $("mode").textContent = String(state.mode || "").toUpperCase();
+  if (state.profile) {
+    const badge = $("profile");
+    badge.hidden = false;
+    const r = state.risk || {};
+    badge.textContent = state.profile.toUpperCase();
+    badge.title = r.per_trade_pct
+      ? `${(r.per_trade_pct * 100).toFixed(0)}% per trade · ` +
+        `${(r.stop_pct * 100).toFixed(0)}% stop · ` +
+        `${r.target_multiple}x target`
+      : "";
+  }
+
+  const advisory = state.verification === "advisory";
+  $("verify").hidden = !advisory;
+  $("verify").title = advisory
+    ? "Contract checks are recorded but do not block trades. A honeypot "
+    + "bought here will appear to sell normally, because the simulator "
+    + "cannot know the real chain would refuse."
+    : "";
+  $("halt").hidden = !state.halted;
+  $("halt").title = state.halt_reason || "";
+
+  // Equity marks open positions at the scanner's latest price; the starting
+  // bankroll is what it is measured against.
+  const equity = state.equity_usd === undefined ? state.bankroll : state.equity_usd;
+  const change = equity - state.starting_bankroll;
+  $("equity").textContent = equity.toLocaleString("en-US", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (change === 0) {
+    $("equity-note").textContent = "unchanged · nothing traded yet";
+    $("equity-note").classList.remove("pos", "neg");
+  } else {
+    signed($("equity-note"), change, v => money(v) +
+      ` (${change >= 0 ? "+" : ""}${pct(change / state.starting_bankroll)})`);
+  }
+
+  const stats = state.stats;
+  signed($("pnl"), change);
+  $("pnl-note").textContent = `${money(stats.realized_usd)} realized · ` +
+    `${money(state.unrealized_usd || 0)} open`;
+
+  signed($("today"), state.realized_today);
+  $("today-note").textContent = `breaker at ${money(-state.daily_loss_limit)}`;
+
+  $("winrate").textContent = stats.trades ? pct(stats.win_rate) : "—";
+  $("winrate-note").textContent = stats.trades
+    ? `${stats.wins}W / ${stats.losses}L over ${stats.trades}`
+    : "no closed trades";
+
+  $("open").textContent = state.positions.length + "/" + state.max_positions;
+  $("open-note").textContent = money(state.open_cost) + " committed";
+
+  $("cash").textContent = money(state.cash);
+  $("cash-note").textContent = state.positions.length
+    ? `${money(state.marked_value || state.open_cost)} at market` : "all in cash";
+
+  $("chart-meta").textContent = stats.trades
+    ? `${stats.trades} trades · max drawdown ${pct(stats.max_drawdown)} · ` +
+      `expectancy ${money(stats.expectancy_usd)}` : "";
+  $("pos-meta").innerHTML = state.positions.length
+    ? `${state.positions.length} held · bar runs ` +
+      `<span class="neg">stop</span> to <span class="pos">target</span>, ` +
+      `marks are price and peak` : "";
+  $("closed-meta").textContent = stats.trades
+    ? `${money(stats.fees_usd + stats.slippage_usd)} paid in fees and slippage`
+    : "";
+  $("fills-meta").textContent = state.recent_fills.length
+    ? `${state.recent_fills.length} most recent` : "";
+
+  renderStrip(state);
+  renderProgress(state);
+  renderTicker(state);
+  renderCards(state);
+  renderSignals(state);
+  renderRisk(state);
+  renderTerminal(state);
+  renderFunnel(state);
+  drawSpark(state.scan_history);
+
+  // An empty plot is a large block of nothing; show it once there is a
+  // curve to draw.
+  $("chart-card").hidden = stats.trades === 0;
+  if (stats.trades > 0) drawChart(state.equity, state.starting_bankroll);
+
+  renderPositions(state.positions);
+  renderClosed(state.closed);
+  renderFills(state.recent_fills);
+  $("fills-note").hidden = state.recent_fills.length === 0;
+
+  $("foot").innerHTML = (state.mode === "paper"
+    ? "Paper trading — no real funds are at risk."
+    : "LIVE MODE — real funds.")
+    + "<br>Every figure is read from the bot's own database. Nothing on this "
+    + "page is estimated, sampled or filled in."
+    + (advisory
+      ? "<br><br>Verification is advisory: unverified tokens are bought and "
+      + "flagged. A honeypot would appear to sell normally here, so profit "
+      + "on a flagged position is an overestimate rather than a riskier "
+      + "version of the same number."
+      : "");
+}
+
 refresh();
 setInterval(refresh, 5000);
+
+// Redraw the canvases on resize; they are sized in device pixels and would
+// otherwise stay at the width the page loaded at.
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  if (resizeTimer) window.clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (lastState.scan_history) drawSpark(lastState.scan_history);
+    if (lastState.equity && lastState.stats && lastState.stats.trades) {
+      drawChart(lastState.equity, lastState.starting_bankroll);
+    }
+  }, 150);
+});
 
 // Phones suspend timers in backgrounded tabs, so a page reopened from the
 // home screen would otherwise show whatever it held when it was put away.

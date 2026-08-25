@@ -86,6 +86,26 @@ CREATE TABLE IF NOT EXISTS activity_history (
 
 CREATE INDEX IF NOT EXISTS idx_activity_history_at ON activity_history (at);
 
+CREATE TABLE IF NOT EXISTS scan_tokens (
+    mint       TEXT    PRIMARY KEY,
+    at         REAL    NOT NULL,
+    assessment TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_scan_tokens_at ON scan_tokens (at);
+
+CREATE TABLE IF NOT EXISTS events (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    at      REAL    NOT NULL,
+    kind    TEXT    NOT NULL,
+    symbol  TEXT    NOT NULL DEFAULT '',
+    mint    TEXT    NOT NULL DEFAULT '',
+    message TEXT    NOT NULL,
+    detail  TEXT    NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_at ON events (at);
+
 CREATE TABLE IF NOT EXISTS mint_blocks (
     mint          TEXT    PRIMARY KEY,
     blocked_until REAL    NOT NULL,
@@ -420,6 +440,110 @@ class Store:
             "entered": row["entered"], "rejections": rejections,
             "skipped_reason": row["skipped_reason"],
         }
+
+    # --- Scanner snapshots ------------------------------------------------
+
+    def save_scan_tokens(self, assessments: list[dict], at: float) -> None:
+        """Replace the scanner's view with this cycle's assessments.
+
+        Replaced rather than accumulated on purpose. A token card carries a
+        live price and a live risk read; keeping a token that dropped out of
+        the feed would leave the terminal showing an hour-old price as if it
+        were current, which is worse than showing nothing.
+        """
+
+        self._connection.execute("DELETE FROM scan_tokens")
+        self._connection.executemany(
+            "INSERT INTO scan_tokens (mint, at, assessment) VALUES (?, ?, ?)",
+            [
+                (a.get("mint", ""), at, json.dumps(a))
+                for a in assessments if a.get("mint")
+            ],
+        )
+        self._connection.commit()
+
+    def scan_tokens(self) -> list[dict]:
+        """This cycle's assessments, highest confidence first."""
+
+        rows = self._connection.execute(
+            "SELECT assessment FROM scan_tokens"
+        ).fetchall()
+        out = []
+        for row in rows:
+            try:
+                out.append(json.loads(row["assessment"]))
+            except (TypeError, ValueError):
+                continue
+        out.sort(key=lambda a: a.get("confidence", 0.0), reverse=True)
+        return out
+
+    # --- Event log --------------------------------------------------------
+
+    _EVENT_LIMIT = 400
+    _HEARTBEAT_LIMIT = 40
+
+    def record_events(self, events: list[dict]) -> None:
+        """Append events to the log and trim it to the retained window."""
+
+        if not events:
+            return
+        self._connection.executemany(
+            "INSERT INTO events (at, kind, symbol, mint, message, detail) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    float(e.get("at", 0.0)), str(e.get("kind", "info")),
+                    str(e.get("symbol", "")), str(e.get("mint", "")),
+                    str(e.get("message", "")),
+                    json.dumps(e.get("detail", {})),
+                )
+                for e in events
+            ],
+        )
+        # Heartbeats are trimmed harder than trades. A cycle emits a scan
+        # line every time, so a single flat cap would push the buys and
+        # sells -- the events actually worth keeping -- out of the log
+        # within a couple of hours.
+        self._connection.execute(
+            "DELETE FROM events WHERE kind = 'scan' AND id NOT IN "
+            "(SELECT id FROM events WHERE kind = 'scan' "
+            " ORDER BY id DESC LIMIT ?)",
+            (self._HEARTBEAT_LIMIT,),
+        )
+        self._connection.execute(
+            "DELETE FROM events WHERE id NOT IN "
+            "(SELECT id FROM events ORDER BY id DESC LIMIT ?)",
+            (self._EVENT_LIMIT,),
+        )
+        self._connection.commit()
+
+    def record_event(
+        self, kind: str, message: str, at: float, *, symbol: str = "",
+        mint: str = "", detail: dict | None = None,
+    ) -> None:
+        """Append a single event."""
+
+        self.record_events([{
+            "at": at, "kind": kind, "symbol": symbol, "mint": mint,
+            "message": message, "detail": detail or {},
+        }])
+
+    def recent_events(self, limit: int = 80) -> list[dict]:
+        """The newest events first, for the activity feed."""
+
+        rows = self._connection.execute(
+            "SELECT at, kind, symbol, mint, message, detail FROM events "
+            "ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {
+                "at": row["at"], "kind": row["kind"], "symbol": row["symbol"],
+                "mint": row["mint"], "message": row["message"],
+                "detail": _json_column(row, "detail", {}),
+            }
+            for row in rows
+        ]
 
     # --- Risk state -------------------------------------------------------
 

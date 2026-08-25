@@ -38,8 +38,21 @@ def build_state(settings: Settings, store: Store) -> dict:
         "halt_reason": "",
     }
 
+    # The scanner writes a live price for every token it looked at this
+    # cycle, held ones included, so open positions can be marked to market
+    # without the dashboard fetching anything of its own.
+    scanner = store.scan_tokens() if hasattr(store, "scan_tokens") else []
+    marks = {token["mint"]: token for token in scanner if token.get("mint")}
+
     positions = []
+    marked_value = 0.0
     for position in store.load_open_positions():
+        mark = marks.get(position.mint)
+        price = mark.get("price") if mark else None
+        # An unpriced position is carried at cost and says so, rather than
+        # being marked at a stale price or silently dropped from equity.
+        value = position.quantity * price if price else position.cost_usd
+        marked_value += value
         positions.append({
             "symbol": position.symbol,
             "mint": position.mint,
@@ -54,6 +67,18 @@ def build_state(settings: Settings, store: Store) -> dict:
             "target_price": (
                 position.entry_price_usd * settings.take_profit_multiple
             ),
+            "price": price,
+            "priced": price is not None,
+            "value_usd": value,
+            "unrealized_usd": value - position.cost_usd,
+            "unrealized_pct": (
+                (value - position.cost_usd) / position.cost_usd
+                if position.cost_usd else 0.0
+            ),
+            "realized_usd": position.realized_usd,
+            "change_24h": mark.get("change_24h") if mark else None,
+            "risk_band": mark.get("risk_band") if mark else None,
+            "risk_score": mark.get("risk_score") if mark else None,
         })
 
     performance = summarize(store, settings.starting_bankroll_usd)
@@ -94,11 +119,21 @@ def build_state(settings: Settings, store: Store) -> dict:
 
     activity = store.load_activity()
     history = store.activity_history()
+    events = store.recent_events() if hasattr(store, "recent_events") else []
 
+    equity_usd = risk["cash_usd"] + marked_value
     return {
         "mode": settings.mode,
         "activity": activity,
         "scan_history": history,
+        "scanner": scanner,
+        "events": events,
+        "equity_usd": equity_usd,
+        "marked_value": marked_value,
+        "unrealized_usd": marked_value - risk["open_cost_usd"],
+        "risk_monitor": _risk_monitor(
+            settings, risk, positions, equity_usd, performance
+        ),
         "run": {
             "started_at": first,
             "days": (now - first) / 86_400.0 if first else 0.0,
@@ -112,6 +147,7 @@ def build_state(settings: Settings, store: Store) -> dict:
             "per_trade_pct": settings.risk_fraction_per_trade,
             "stop_pct": settings.stop_loss_pct,
             "target_multiple": settings.take_profit_multiple,
+            "min_entry_score": settings.min_entry_score,
         },
         "generated_at": now,
         "bankroll": risk["cash_usd"] + risk["open_cost_usd"],
@@ -148,6 +184,56 @@ def build_state(settings: Settings, store: Store) -> dict:
             "exits": performance.exit_breakdown,
             "pnl_by_exit": performance.pnl_by_exit,
         },
+    }
+
+
+def _risk_monitor(
+    settings: Settings, risk: dict, positions: list, equity: float,
+    performance,
+) -> dict:
+    """Portfolio-level exposure, each figure measured rather than scored.
+
+    These are the numbers that decide whether a bad day becomes a bad week:
+    how much of the bankroll is at risk at once, how much of it sits in a
+    single token, how much of today's loss budget is spent, and how much has
+    been bought without the contract checks passing.
+    """
+
+    exposure = risk["open_cost_usd"] / equity if equity > 0 else 0.0
+    largest = max((p["value_usd"] for p in positions), default=0.0)
+    concentration = largest / equity if equity > 0 else 0.0
+
+    limit = equity * settings.daily_loss_limit_pct
+    lost_today = max(0.0, -risk["realized_today_usd"])
+    budget_used = lost_today / limit if limit > 0 else 0.0
+
+    unverified = [p for p in positions if p["unverified"]]
+    danger = [p for p in positions if p.get("risk_band") == "DANGER"]
+    unpriced = [p for p in positions if not p["priced"]]
+
+    # Worst case if every open position stopped out at once, at the
+    # configured stop. Slippage on the way out makes the real number worse.
+    stop_risk = sum(p["value_usd"] for p in positions) * settings.stop_loss_pct
+
+    return {
+        "exposure_pct": exposure,
+        "slots_used": len(positions),
+        "slots": settings.max_open_positions,
+        "concentration_pct": concentration,
+        "daily_budget_used_pct": budget_used,
+        "daily_loss_limit_usd": limit,
+        "lost_today_usd": lost_today,
+        "stop_risk_usd": stop_risk,
+        "stop_risk_pct": stop_risk / equity if equity > 0 else 0.0,
+        "unverified_count": len(unverified),
+        "unverified_symbols": [p["symbol"] for p in unverified],
+        "danger_count": len(danger),
+        "danger_symbols": [p["symbol"] for p in danger],
+        "unpriced_count": len(unpriced),
+        "loss_streak": performance.largest_loss_streak,
+        "max_drawdown": performance.max_drawdown,
+        "halted": risk["halted"],
+        "halt_reason": risk["halt_reason"],
     }
 
 

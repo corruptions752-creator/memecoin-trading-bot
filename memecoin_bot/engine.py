@@ -20,6 +20,7 @@ from .models import (
 )
 from .risk import RiskManager
 from .onchain import apply_lp_policy
+from .scanner import assess
 from .safety import (
     AuthorityProvider, UnknownAuthorityProvider, categorize, screen,
 )
@@ -27,6 +28,10 @@ from .store import Store
 from .strategy import decide_entry, decide_exit
 
 log = logging.getLogger(__name__)
+
+#: How many tokens the scanner keeps. A cycle sees a few hundred; the
+#: terminal shows the strongest reads rather than the whole feed.
+SCANNER_CARD_LIMIT = 24
 
 
 @dataclass(slots=True)
@@ -58,6 +63,10 @@ class CycleReport:
     near_misses: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     """Tokens that cleared the market checks and then failed verification,
     with every reason. A bucket count says how many; this says which."""
+    assessments: list[dict] = field(default_factory=list)
+    """Per-token reads for the scanner display, highest confidence first."""
+    events: list[dict] = field(default_factory=list)
+    """Things that happened this cycle, in order, for the activity feed."""
 
 
 class TradingEngine:
@@ -82,6 +91,10 @@ class TradingEngine:
         self.authority = authority or UnknownAuthorityProvider()
         self.enforce_contract_checks = enforce_contract_checks
         self.positions: list[Position] = store.load_open_positions()
+        self._held_snapshots: dict[str, TokenSnapshot] = {}
+        # Seeded from the restored state so a restart mid-halt does not
+        # announce a halt that has been in force for hours.
+        self._was_halted = bool(getattr(risk, "halted", False))
         if self.positions:
             log.info("resumed %d open position(s)", len(self.positions))
 
@@ -92,12 +105,16 @@ class TradingEngine:
 
         at = time.time() if now is None else now
         report = CycleReport()
+        self._held_snapshots = {}
 
         if self.risk.roll_day(at):
             self.risk.persist(self.store, at)
         self._manage_positions(at, report)
         self._seek_entries(at, report)
+        self._note_halt_change(report, at)
         self._record_activity(report, at)
+        self._record_scan(report, at)
+        self._flush_events(report, at)
         return report
 
     def run_forever(self) -> None:
@@ -128,7 +145,13 @@ class TradingEngine:
                 # No quote this cycle. Hold rather than dumping blind; the
                 # time stop will still force the issue if it persists.
                 log.warning("no snapshot for %s; holding", position.symbol)
+                self._event(
+                    report, "warn", at,
+                    f"no quote for {position.symbol}; holding",
+                    symbol=position.symbol, mint=position.mint,
+                )
                 continue
+            self._held_snapshots[position.mint] = snapshot
 
             decision = decide_exit(position, snapshot, self.settings, at)
             if decision is None:
@@ -167,6 +190,14 @@ class TradingEngine:
             # a target rather than a guarantee.
             self._charge_failed_transaction(error, at)
             report.failed_exits.append((position.symbol, decision.reason))
+            self._event(
+                report, "fail", at,
+                f"sell of {position.symbol} failed "
+                f"({error.result.failure.value if error.result.failure else '?'})"
+                "; still holding",
+                symbol=position.symbol, mint=position.mint,
+                fee_usd=error.result.network_fee_usd,
+            )
             log.warning(
                 "exit for %s failed (%s); still holding %.4f units",
                 position.symbol,
@@ -195,6 +226,17 @@ class TradingEngine:
             self.store.close_position(position, decision.reason, at)
             self.positions.remove(position)
             report.exited.append((position.symbol, decision.reason))
+            self._event(
+                report, "sell", at,
+                f"closed {position.symbol} on "
+                f"{decision.reason.value.replace('_', ' ')} for "
+                f"{'+' if position.realized_usd >= 0 else '-'}"
+                f"${abs(position.realized_usd):,.2f}",
+                symbol=position.symbol, mint=position.mint,
+                realized_usd=position.realized_usd,
+                reason=decision.reason.value, price=fill.price_usd,
+                usd=proceeds,
+            )
             log.info(
                 "CLOSED %s (%s): realized $%.2f — %s",
                 position.symbol, decision.reason.value,
@@ -203,6 +245,14 @@ class TradingEngine:
         else:
             self.store.update_position(position)
             report.exited.append((position.symbol, decision.reason))
+            self._event(
+                report, "reduce", at,
+                f"took profit on {position.symbol}: banked "
+                f"${proceeds:,.2f}, {position.quantity:,.4f} units left",
+                symbol=position.symbol, mint=position.mint,
+                reason=decision.reason.value, price=fill.price_usd,
+                usd=proceeds,
+            )
             log.info(
                 "REDUCED %s (%s): banked $%.2f, %.4f units left — %s",
                 position.symbol, decision.reason.value, proceeds,
@@ -262,6 +312,80 @@ class TradingEngine:
         except Exception:  # noqa: BLE001 - reporting must never stop trading
             log.debug("could not record activity", exc_info=True)
 
+    def _event(
+        self, report: CycleReport, kind: str, at: float, message: str, *,
+        symbol: str = "", mint: str = "", **detail,
+    ) -> None:
+        """Note something that happened, for the activity feed.
+
+        Every event corresponds to an action the bot actually took. The feed
+        is a record, not decoration, so nothing is written here that did not
+        happen.
+        """
+
+        report.events.append({
+            "at": at, "kind": kind, "symbol": symbol, "mint": mint,
+            "message": message, "detail": detail,
+        })
+
+    def _note_halt_change(self, report: CycleReport, at: float) -> None:
+        """Log the circuit breaker only when it changes state."""
+
+        halted = bool(getattr(self.risk, "halted", False))
+        if halted and not self._was_halted:
+            self._event(
+                report, "halt", at,
+                f"trading halted — {self.risk.halt_reason}",
+                reason=self.risk.halt_reason,
+            )
+        elif self._was_halted and not halted:
+            self._event(report, "resume", at, "trading resumed — limits reset")
+        self._was_halted = halted
+
+    def _flush_events(self, report: CycleReport, at: float) -> None:
+        """Persist this cycle's events, heartbeat last."""
+
+        self._event(
+            report, "scan", at,
+            f"scan complete — {report.scanned} seen, "
+            f"{report.shortlisted} shortlisted, {report.candidates} tradable",
+            scanned=report.scanned, shortlisted=report.shortlisted,
+            candidates=report.candidates, entered=len(report.entered),
+            rejected=report.rejected,
+        )
+        recorder = getattr(self.store, "record_events", None)
+        if recorder is None:
+            return
+        try:
+            recorder(report.events)
+        except Exception:  # noqa: BLE001 - reporting must never stop trading
+            log.debug("could not record events", exc_info=True)
+
+    def _record_scan(self, report: CycleReport, at: float) -> None:
+        """Persist the scanner's per-token reads."""
+
+        recorder = getattr(self.store, "save_scan_tokens", None)
+        if recorder is None:
+            return
+        try:
+            recorder(report.assessments, at)
+        except Exception:  # noqa: BLE001 - reporting must never stop trading
+            log.debug("could not record scan tokens", exc_info=True)
+
+    def _assess_held(self) -> list[dict]:
+        """Scanner reads for the tokens the bot is currently holding."""
+
+        out = []
+        for position in self.positions:
+            snapshot = self._held_snapshots.get(position.mint)
+            if snapshot is None:
+                continue
+            out.append(assess(
+                snapshot, self.settings,
+                position_size_usd=position.cost_usd, held=True,
+            ))
+        return out
+
     def _charge_failed_transaction(
         self, error: ExecutionFailed, at: float
     ) -> None:
@@ -313,15 +437,18 @@ class TradingEngine:
         if not allowed:
             report.skipped_reason = why_not
             log.debug("not entering: %s", why_not)
-            return
 
         candidates = self.market.discover()
         report.scanned = len(candidates)
         held = {position.mint for position in self.positions}
         blocked = self.store.blocked_mints(at)
 
+        size_usd = self.risk.position_size_usd()
         shortlist: list = []
         ranked: list = []
+        # Scanner reads for tokens that never make it past phase one. They
+        # carry no on-chain data, and say so, rather than being dropped.
+        watched: list[dict] = []
         for snapshot in candidates:
             if snapshot.mint in held or snapshot.mint == self.settings.quote_mint:
                 continue
@@ -340,6 +467,10 @@ class TradingEngine:
             if not market_verdict.passed:
                 report.rejected += 1
                 self._count_rejection(report, market_verdict.failures[0])
+                watched.append(assess(
+                    snapshot, self.settings, verdict=market_verdict,
+                    position_size_usd=size_usd,
+                ))
                 continue
 
             entry = decide_entry(snapshot, self.settings)
@@ -348,16 +479,31 @@ class TradingEngine:
                 report.rejections["low score"] = (
                     report.rejections.get("low score", 0) + 1
                 )
+                watched.append(assess(
+                    snapshot, self.settings,
+                    position_size_usd=size_usd,
+                ))
                 continue
             shortlist.append(entry)
 
         # Phase two: the contract checks. Each one costs several network
         # round trips against rate-limited endpoints, so they run only on
-        # what survived phase one. Checking all of them first turned a
-        # one-minute cycle into a ten-minute one and left the dashboard
-        # permanently stale.
+        # what survived phase one -- and only when there is room to act on
+        # the answer. Checking all of them first turned a one-minute cycle
+        # into a ten-minute one and left the dashboard permanently stale.
+        verified: list[dict] = []
         for entry in shortlist:
             snapshot = entry.snapshot
+            if not allowed:
+                # No slot to fill, so no reason to spend a rate-limited
+                # lookup. The card reports the contract checks as unchecked,
+                # which is what they are.
+                verified.append(assess(
+                    snapshot, self.settings,
+                    position_size_usd=size_usd,
+                ))
+                continue
+
             authority = apply_lp_policy(
                 self._fetch_authority(snapshot), self.settings,
                 liquidity_usd=snapshot.liquidity_usd,
@@ -367,6 +513,10 @@ class TradingEngine:
                 snapshot, self.settings, authority,
                 require_contract_checks=self.enforce_contract_checks,
             )
+            verified.append(assess(
+                snapshot, self.settings, authority, verdict,
+                position_size_usd=size_usd,
+            ))
 
             # Advisory verification: the findings are still computed and
             # still recorded against the position, they just do not veto.
@@ -380,6 +530,13 @@ class TradingEngine:
                 log.warning(
                     "ADVISORY: buying %s despite %s", snapshot.symbol,
                     "; ".join(verdict.failures),
+                )
+                self._event(
+                    report, "advisory", at,
+                    f"{snapshot.symbol} failed verification: "
+                    + "; ".join(verdict.failures),
+                    symbol=snapshot.symbol, mint=snapshot.mint,
+                    failures=list(verdict.failures),
                 )
                 ranked.append(entry)
                 continue
@@ -395,6 +552,12 @@ class TradingEngine:
                     "near miss %s: %s", snapshot.symbol,
                     "; ".join(verdict.failures),
                 )
+                self._event(
+                    report, "reject", at,
+                    f"{snapshot.symbol} blocked: " + "; ".join(verdict.failures),
+                    symbol=snapshot.symbol, mint=snapshot.mint,
+                    failures=list(verdict.failures),
+                )
                 continue
             ranked.append(entry)
 
@@ -402,6 +565,10 @@ class TradingEngine:
         report.candidates = len(ranked)
         report.rpc_lookups = getattr(self.authority, "lookups", 0)
         report.rpc_failures = getattr(self.authority, "rpc_failures", 0)
+        report.assessments = self._collect_assessments(verified, watched)
+
+        if not allowed:
+            return
 
         ranked.sort(key=lambda entry: entry.score, reverse=True)
 
@@ -411,6 +578,33 @@ class TradingEngine:
                 report.skipped_reason = why_not
                 break
             self._execute_entry(entry, at, report)
+
+    def _collect_assessments(
+        self, verified: list[dict], watched: list[dict]
+    ) -> list[dict]:
+        """The scanner's card list: held tokens, then the strongest reads.
+
+        Held positions are always present -- the bot's own money is never
+        something the operator should have to go looking for -- and the rest
+        of the room goes to the highest-scoring tokens seen this cycle.
+        """
+
+        cards = self._assess_held()
+        seen = {card["mint"] for card in cards}
+
+        rest = sorted(
+            verified + watched,
+            key=lambda a: (a["signal"] == "BUY", a["confidence"]),
+            reverse=True,
+        )
+        for card in rest:
+            if len(cards) >= SCANNER_CARD_LIMIT:
+                break
+            if card["mint"] in seen:
+                continue
+            seen.add(card["mint"])
+            cards.append(card)
+        return cards
 
     def _execute_entry(self, entry, at: float, report: CycleReport) -> None:
         """Open a position in the scored candidate."""
@@ -425,6 +619,13 @@ class TradingEngine:
         except ExecutionFailed as error:
             self._charge_failed_transaction(error, at)
             report.failed_entries.append(snapshot.symbol)
+            self._event(
+                report, "fail", at,
+                f"buy of {snapshot.symbol} failed "
+                f"({error.result.failure.value if error.result.failure else '?'})",
+                symbol=snapshot.symbol, mint=snapshot.mint,
+                fee_usd=error.result.network_fee_usd,
+            )
             return
 
         if fill.quantity <= 0:
@@ -449,6 +650,15 @@ class TradingEngine:
         self.store.record_fill(fill, position.position_id)
         self.positions.append(position)
         report.entered.append(snapshot.symbol)
+        self._event(
+            report, "buy", at,
+            f"opened {snapshot.symbol} — ${fill.net_usd:,.2f} at "
+            f"{fill.price_usd:.8f} (confidence {entry.score:.2f})",
+            symbol=snapshot.symbol, mint=snapshot.mint,
+            usd=fill.net_usd, price=fill.price_usd, score=entry.score,
+            notes=list(entry.notes),
+            unverified=list(entry.unverified_reasons),
+        )
 
         log.info(
             "OPENED %s $%.2f @ %.10f (score %.2f: %s)",

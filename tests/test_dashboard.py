@@ -558,3 +558,176 @@ def test_the_page_has_no_undefined_helpers():
         and f"{name}:" not in script
     }
     assert not suspects, f"called but never defined: {sorted(suspects)}"
+
+
+# --- Marking positions to market -----------------------------------------
+
+def test_an_open_position_is_marked_at_the_scanners_price(tmp_path):
+    """Without a live mark, portfolio value is stuck at cost and a position
+    that has doubled looks identical to one that has not moved."""
+
+    settings, store = traded(tmp_path)
+    position = build_state(settings, store)["positions"][0]
+
+    assert position["priced"] is True
+    assert position["price"] > 0
+    assert position["value_usd"] == position["quantity"] * position["price"]
+    assert position["unrealized_usd"] == (
+        position["value_usd"] - position["cost_usd"]
+    )
+
+
+def test_equity_counts_the_marked_value_not_the_cost(tmp_path):
+    settings, store = traded(tmp_path)
+    state = build_state(settings, store)
+    assert state["equity_usd"] == state["cash"] + state["marked_value"]
+    assert state["unrealized_usd"] == state["marked_value"] - state["open_cost"]
+
+
+def test_an_unpriced_position_is_carried_at_cost_and_says_so(tmp_path):
+    """A stale price is worse than an honest gap: it puts a number the bot
+    cannot stand behind into the headline figure."""
+
+    settings, store = traded(tmp_path)
+    store.save_scan_tokens([], NOW + 700)
+
+    position = build_state(settings, store)["positions"][0]
+    assert position["priced"] is False
+    assert position["price"] is None
+    assert position["value_usd"] == position["cost_usd"]
+
+
+# --- Risk monitor ---------------------------------------------------------
+
+def test_the_risk_monitor_measures_exposure(tmp_path):
+    settings, store = traded(tmp_path)
+    state = build_state(settings, store)
+    monitor = state["risk_monitor"]
+
+    assert monitor["slots"] == settings.max_open_positions
+    assert monitor["slots_used"] == len(state["positions"])
+    assert 0 < monitor["exposure_pct"] < 1
+    assert monitor["concentration_pct"] <= monitor["exposure_pct"] + 1e-9
+
+
+def test_the_daily_budget_is_reported_against_the_configured_limit(tmp_path):
+    settings, store = traded(tmp_path, crash_price=0.0005)
+    monitor = build_state(settings, store)["risk_monitor"]
+
+    assert monitor["daily_loss_limit_usd"] > 0
+    assert monitor["lost_today_usd"] >= 0
+    assert monitor["daily_budget_used_pct"] == (
+        monitor["lost_today_usd"] / monitor["daily_loss_limit_usd"]
+    )
+
+
+def test_the_stop_risk_is_the_whole_book_at_its_stop(tmp_path):
+    settings, store = traded(tmp_path)
+    state = build_state(settings, store)
+    monitor = state["risk_monitor"]
+
+    expected = sum(p["value_usd"] for p in state["positions"]) * settings.stop_loss_pct
+    assert monitor["stop_risk_usd"] == expected
+
+
+def test_an_unverified_position_is_named_in_the_monitor(tmp_path):
+    from memecoin_bot.models import Position
+
+    settings, store = traded(tmp_path)
+    store.open_position(Position(
+        mint="Unverified1111", symbol="SHADY", entry_price_usd=0.001,
+        quantity=1_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=50_000.0, peak_price_usd=0.001,
+        unverified_reasons=("mint authority not revoked",),
+    ))
+    monitor = build_state(settings, store)["risk_monitor"]
+    assert monitor["unverified_count"] == 1
+    assert monitor["unverified_symbols"] == ["SHADY"]
+
+
+def test_a_fresh_database_reports_a_calm_risk_monitor(tmp_path):
+    settings = deterministic_settings(
+        database_path=str(tmp_path / "empty.sqlite3")
+    )
+    monitor = build_state(settings, Store(settings.database_path))["risk_monitor"]
+    assert monitor["exposure_pct"] == 0
+    assert monitor["unverified_count"] == 0
+    assert monitor["danger_count"] == 0
+
+
+# --- Scanner and events on the wire --------------------------------------
+
+def test_the_scan_and_the_event_log_are_served(tmp_path):
+    settings, store = traded(tmp_path)
+    state = build_state(settings, store)
+
+    assert state["scanner"], "the terminal has nothing to draw without this"
+    assert state["events"], "the activity feed has nothing to draw without this"
+    assert state["scanner"][0]["symbol"] == "DASH"
+
+
+def test_the_entry_threshold_is_served_so_the_page_can_name_it(tmp_path):
+    settings, store = traded(tmp_path)
+    assert build_state(settings, store)["risk"]["min_entry_score"] == (
+        settings.min_entry_score
+    )
+
+
+# --- The page renders the new sections -----------------------------------
+
+def page_text():
+    from pathlib import Path
+    import memecoin_bot
+
+    return (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+
+
+def test_the_page_renders_every_section_the_state_carries():
+    page = page_text()
+    for renderer in (
+        "renderCards", "renderSignals", "renderRisk", "renderTerminal",
+        "renderFunnel", "renderPositions", "renderClosed", "renderFills",
+    ):
+        assert f"function {renderer}" in page
+        assert f"{renderer}(" in page.split(f"function {renderer}")[1], (
+            f"{renderer} is defined but never called"
+        )
+
+
+def test_the_scanner_explains_an_unchecked_contract():
+    """Advisory mode and a full book both leave contract checks unread. A
+    card that showed nothing there would read as a clean bill of health."""
+
+    assert "not checked" in page_text()
+
+
+def test_a_meter_bar_never_stands_alone():
+    """A bar with no number is decoration; the reader cannot act on it."""
+
+    page = page_text()
+    assert "function bar(" in page
+    assert "mtop" in page and "gtop" in page
+
+
+def test_a_zero_bar_is_not_drawn():
+    """A minimum width makes a 1% reading visible, and would otherwise paint
+    a coloured nub on a gauge reading zero."""
+
+    page = page_text()
+    assert "if (percent <= 0) return" in page
+
+
+def test_tables_collapse_rather_than_scroll_on_a_phone():
+    """Six columns on a 390px screen push P&L off the side, so the number
+    the reader came for needs a sideways swipe to find."""
+
+    page = page_text()
+    assert "rtable" in page
+    assert 'data-l="P&L"' in page
+    assert "content: attr(data-l)" in page
+
+
+def test_the_activity_feed_shows_the_kind_of_each_event():
+    page = page_text()
+    assert "class=\"kind" in page
+    assert ".kind.buy" in page and ".kind.sell" in page

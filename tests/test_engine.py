@@ -729,3 +729,158 @@ def test_the_unverified_flag_survives_a_restart(tmp_path):
 
     restored = Store(path).load_open_positions()[0]
     assert restored.unverified_reasons, "flag must survive persistence"
+
+
+# --- Scanner and event log ------------------------------------------------
+
+def test_a_cycle_publishes_a_read_for_every_interesting_token():
+    engine, _, store = build_engine([
+        make_snapshot(mint="A" * 32, symbol="ALPHA"),
+        make_snapshot(mint="B" * 32, symbol="BETA"),
+    ])
+    engine.run_cycle(NOW)
+
+    published = {token["symbol"] for token in store.scan_tokens()}
+    assert published == {"ALPHA", "BETA"}
+
+
+def test_a_token_rejected_by_the_market_screen_still_gets_a_card():
+    """A scanner that only showed what the bot could buy would be empty on
+    almost every cycle, and would hide why the rest were turned down."""
+
+    engine, _, store = build_engine([
+        make_snapshot(symbol="THIN", liquidity_usd=1.0),
+    ])
+    engine.run_cycle(NOW)
+
+    cards = store.scan_tokens()
+    assert [c["symbol"] for c in cards] == ["THIN"]
+    assert cards[0]["signal"] == "AVOID"
+    assert cards[0]["blocked_by"], "the card must carry the reason"
+
+
+def test_a_held_token_is_always_in_the_scan():
+    """Own money is never something the operator has to go looking for."""
+
+    snapshot = make_snapshot(symbol="HELD")
+    engine, _, store = build_engine([snapshot])
+    engine.run_cycle(NOW)
+    assert engine.positions
+
+    # Second cycle: the token is held, so it is skipped as a candidate.
+    engine.run_cycle(NOW + 60)
+    held = [c for c in store.scan_tokens() if c["symbol"] == "HELD"]
+    assert held and held[0]["signal"] == "HELD"
+
+
+def test_the_scan_is_capped():
+    from memecoin_bot.engine import SCANNER_CARD_LIMIT
+
+    candidates = [
+        make_snapshot(mint=f"Mint{i:039d}", symbol=f"T{i}")
+        for i in range(SCANNER_CARD_LIMIT + 15)
+    ]
+    engine, _, store = build_engine(candidates)
+    engine.run_cycle(NOW)
+    assert len(store.scan_tokens()) == SCANNER_CARD_LIMIT
+
+
+def test_a_full_book_still_scans():
+    """With every slot filled the loop used to return before discovery, so
+    the terminal went blank exactly when there was most to watch."""
+
+    settings = deterministic_settings(min_entry_score=0.01, max_open_positions=1)
+    engine, _, store = build_engine(
+        [make_snapshot(mint="A" * 32, symbol="ALPHA"),
+         make_snapshot(mint="B" * 32, symbol="BETA")],
+        settings=settings,
+    )
+    engine.run_cycle(NOW)
+    assert len(engine.positions) == 1
+
+    report = engine.run_cycle(NOW + 60)
+    assert report.skipped_reason
+    assert report.scanned > 0
+    assert store.scan_tokens()
+
+
+def test_a_full_book_spends_no_chain_lookups():
+    """A lookup buys nothing when there is no slot to act on the answer,
+    and the endpoints are rate limited."""
+
+    class CountingAuthority:
+        def __init__(self):
+            self.calls = 0
+
+        def fetch(self, mint, pool_base_amount=0.0):
+            self.calls += 1
+            return safe_authority()
+
+    settings = deterministic_settings(min_entry_score=0.01, max_open_positions=1)
+    authority = CountingAuthority()
+    engine, _, _ = build_engine(
+        [make_snapshot(mint="A" * 32, symbol="ALPHA"),
+         make_snapshot(mint="B" * 32, symbol="BETA")],
+        settings=settings, authority=None,
+    )
+    engine.authority = authority
+    engine.run_cycle(NOW)
+    spent = authority.calls
+
+    engine.run_cycle(NOW + 60)
+    assert authority.calls == spent, "a full book must not pay for lookups"
+
+
+def test_a_buy_and_a_sell_are_written_to_the_event_log():
+    snapshot = make_snapshot(symbol="RUNNER")
+    engine, market, store = build_engine([snapshot])
+    engine.run_cycle(NOW)
+
+    crashed = make_snapshot(symbol="RUNNER", price_usd=snapshot.price_usd * 0.2)
+    market.prices[snapshot.mint] = crashed
+    market.candidates = []
+    engine.run_cycle(NOW + 600)
+
+    kinds = [e["kind"] for e in store.recent_events()]
+    assert "buy" in kinds and "sell" in kinds
+
+
+def test_every_cycle_leaves_a_heartbeat():
+    """Most cycles do nothing. Without a line saying so, a working bot and a
+    stopped one look identical."""
+
+    engine, _, store = build_engine([])
+    engine.run_cycle(NOW)
+    scans = [e for e in store.recent_events() if e["kind"] == "scan"]
+    assert len(scans) == 1
+    assert "seen" in scans[0]["message"]
+
+
+def test_the_halt_is_logged_once_not_every_cycle():
+    engine, _, store = build_engine([])
+    engine.risk.halt("daily loss limit reached")
+    engine.run_cycle(NOW)
+    engine.run_cycle(NOW + 60)
+
+    halts = [e for e in store.recent_events() if e["kind"] == "halt"]
+    assert len(halts) == 1
+
+
+def test_a_halt_already_in_force_at_startup_is_not_announced():
+    """A scheduled runner restarts every few minutes; each restart would
+    otherwise report the same halt as if it had just happened."""
+
+    settings = deterministic_settings(min_entry_score=0.01)
+    store = Store(":memory:")
+    risk = RiskManager.start(settings, NOW)
+    risk.halt("daily loss limit reached")
+    risk.persist(store, NOW)
+
+    market = FakeMarket(candidates=[], prices={})
+    engine = TradingEngine(
+        settings, market, PaperBroker(settings, seed=1),
+        RiskManager.restore(settings, NOW, store), store,
+        FixedAuthority(safe_authority()),
+    )
+    engine.run_cycle(NOW + 60)
+    assert not [e for e in store.recent_events() if e["kind"] == "halt"]
