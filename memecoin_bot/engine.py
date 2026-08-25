@@ -67,6 +67,10 @@ class CycleReport:
     """Per-token reads for the scanner display, highest confidence first."""
     events: list[dict] = field(default_factory=list)
     """Things that happened this cycle, in order, for the activity feed."""
+    verification_ran: bool = True
+    """Whether the contract checks ran at all. With no free slot they are
+    skipped, and a candidate count of zero then means "not asked" rather
+    than "everything failed" -- opposite readings of the same number."""
 
 
 class TradingEngine:
@@ -305,6 +309,7 @@ class TradingEngine:
                 rpc_failures=report.rpc_failures,
                 rpc_lookups=report.rpc_lookups,
                 near_misses=report.near_misses,
+                verification_ran=report.verification_ran,
                 entered=len(report.entered),
                 rejections=report.rejections,
                 skipped_reason=report.skipped_reason,
@@ -581,6 +586,7 @@ class TradingEngine:
 
         report.shortlisted = len(shortlist)
         report.candidates = len(ranked)
+        report.verification_ran = allowed
         report.rpc_lookups = getattr(self.authority, "lookups", 0)
         report.rpc_failures = getattr(self.authority, "rpc_failures", 0)
         report.assessments = self._collect_assessments(verified, watched)

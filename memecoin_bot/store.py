@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS activity (
     shortlisted    INTEGER NOT NULL DEFAULT 0,
     rpc_failures   INTEGER NOT NULL DEFAULT 0,
     rpc_lookups    INTEGER NOT NULL DEFAULT 0,
+    verification_ran INTEGER NOT NULL DEFAULT 1,
     near_misses    TEXT    NOT NULL DEFAULT '[]',
     entered        INTEGER NOT NULL,
     rejections     TEXT    NOT NULL DEFAULT '{}',
@@ -165,6 +166,7 @@ class Store:
         ("activity", "rpc_failures", "INTEGER NOT NULL DEFAULT 0"),
         ("activity", "rpc_lookups", "INTEGER NOT NULL DEFAULT 0"),
         ("activity", "near_misses", "TEXT NOT NULL DEFAULT '[]'"),
+        ("activity", "verification_ran", "INTEGER NOT NULL DEFAULT 1"),
         ("positions", "unverified_reasons", "TEXT NOT NULL DEFAULT '[]'"),
     )
 
@@ -340,7 +342,7 @@ class Store:
         self, *, at: float, scanned: int, rejected: int, candidates: int,
         entered: int, rejections: dict, skipped_reason: str = "",
         shortlisted: int = 0, rpc_failures: int = 0, rpc_lookups: int = 0,
-        near_misses: list | None = None,
+        near_misses: list | None = None, verification_ran: bool = True,
     ) -> None:
         """Record the most recent scan, overwriting the previous one."""
 
@@ -349,8 +351,8 @@ class Store:
             INSERT INTO activity (
                 id, at, scanned, rejected, candidates, shortlisted,
                 rpc_failures, rpc_lookups, entered, rejections,
-                skipped_reason, near_misses
-            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                skipped_reason, near_misses, verification_ran
+            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 at = excluded.at, scanned = excluded.scanned,
                 rejected = excluded.rejected, candidates = excluded.candidates,
@@ -358,6 +360,7 @@ class Store:
                 rpc_failures = excluded.rpc_failures,
                 rpc_lookups = excluded.rpc_lookups,
                 near_misses = excluded.near_misses,
+                verification_ran = excluded.verification_ran,
                 entered = excluded.entered, rejections = excluded.rejections,
                 skipped_reason = excluded.skipped_reason
             """,
@@ -365,7 +368,7 @@ class Store:
                 at, scanned, rejected, candidates, shortlisted,
                 rpc_failures, rpc_lookups, entered,
                 json.dumps(rejections), skipped_reason,
-                json.dumps(near_misses or []),
+                json.dumps(near_misses or []), int(verification_ran),
             ),
         )
         self._connection.execute(
@@ -437,6 +440,7 @@ class Store:
             "rpc_failures": _column(row, "rpc_failures"),
             "rpc_lookups": _column(row, "rpc_lookups"),
             "near_misses": _json_column(row, "near_misses", []),
+            "verification_ran": bool(_column(row, "verification_ran", 1)),
             "entered": row["entered"], "rejections": rejections,
             "skipped_reason": row["skipped_reason"],
         }

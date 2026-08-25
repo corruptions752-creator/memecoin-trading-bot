@@ -229,3 +229,42 @@ def test_a_card_is_json_serialisable():
 
     card = read(authority=safe_authority(), position_size_usd=50.0)
     assert json.loads(json.dumps(card))["symbol"] == card["symbol"]
+
+
+def test_the_ai_badge_is_not_worn_by_a_token_that_cannot_be_bought():
+    """Scoring above the threshold is not the same as being tradable: a
+    pair with a drained pool still scores on momentum and flow, and a
+    reader takes the badge to mean the bot likes the token."""
+
+    settings = deterministic_settings(min_entry_score=0.01)
+    snapshot = make_snapshot(liquidity_usd=0.0, price_change_5m=0.30)
+    verdict = screen(snapshot, settings, require_contract_checks=False)
+    assert not verdict.passed
+
+    card = read(snapshot, None, verdict=verdict, settings=settings)
+    assert card["confidence"] > settings.min_entry_score
+    assert card["signal"] == "AVOID"
+    assert "AI SIGNAL" not in card["badges"]
+
+
+def test_buy_pressure_needs_enough_trades_to_mean_anything():
+    """Two buys and no sells is a 100% buy rate off a sample of two."""
+
+    from memecoin_bot.scanner import MIN_FLOW_SAMPLE
+
+    thin = read(make_snapshot(buys_5m=2, sells_5m=0), safe_authority())
+    assert thin["buys_5m"] + thin["sells_5m"] < MIN_FLOW_SAMPLE
+    assert "BUY PRESSURE" not in thin["badges"]
+
+    real = read(make_snapshot(buys_5m=80, sells_5m=20), safe_authority())
+    assert "BUY PRESSURE" in real["badges"]
+
+
+def test_a_thin_flow_bar_is_drawn_neutral():
+    from pathlib import Path
+    import memecoin_bot
+
+    page = (Path(memecoin_bot.__file__).parent / "dashboard.html").read_text()
+    assert "thinFlow" in page
+    assert ".fill.thin" in page
+    assert "no trades in 5m" in page

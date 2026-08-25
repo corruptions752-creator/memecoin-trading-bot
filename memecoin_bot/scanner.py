@@ -29,6 +29,10 @@ class RiskFactor:
     detail: str
 
 
+#: Trades in the five-minute window below which flow says nothing. Two buys
+#: and no sells is a 100% buy rate and means nothing at all.
+MIN_FLOW_SAMPLE = 10
+
 SIGNAL_BUY = "BUY"
 SIGNAL_WATCH = "WATCH"
 SIGNAL_AVOID = "AVOID"
@@ -210,9 +214,14 @@ def _badges(
         badges.append("DANGER")
     if snapshot.price_change_5m >= 0.15:
         badges.append("HIGH MOMENTUM")
-    if score >= settings.min_entry_score:
+    # Only on a token the bot would actually buy. Scoring above the
+    # threshold is not the same thing: a pair with a drained pool still
+    # scores on momentum and flow, and a reader takes this badge to mean
+    # the bot likes the token rather than that one number cleared a bar.
+    if signal == SIGNAL_BUY and score >= settings.min_entry_score:
         badges.append("AI SIGNAL")
-    if snapshot.buy_sell_ratio_5m >= 2.0:
+    flow = snapshot.buys_5m + snapshot.sells_5m
+    if flow >= MIN_FLOW_SAMPLE and snapshot.buy_sell_ratio_5m >= 2.0:
         badges.append("BUY PRESSURE")
     if snapshot.volume_to_liquidity_24h >= 30:
         badges.append("HIGH VOLUME")

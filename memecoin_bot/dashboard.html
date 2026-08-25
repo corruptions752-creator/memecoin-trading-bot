@@ -311,6 +311,7 @@ h1 {
 .fill.good { background: var(--up); }
 .fill.warn { background: var(--warn); }
 .fill.bad { background: var(--down); }
+.fill.thin { background: var(--ink-3); }
 
 /* Expanded card detail */
 /* Selected-token detail, as a strip under the grid. Inside a card it
@@ -890,6 +891,9 @@ function cardMarkup(token) {
 
   const flow = token.buys_5m + token.sells_5m;
   const buyShare = flow ? token.buys_5m / flow : 0;
+  // Below a handful of trades the share is noise, so the bar is drawn
+  // neutral rather than green or red -- a coloured bar reads as a verdict.
+  const thinFlow = flow < 10;
 
   const cls = token.signal === "HELD" ? "held"
     : token.signal === "BUY" ? "buy"
@@ -929,8 +933,10 @@ function cardMarkup(token) {
     </div>
     <div class="meter">
       <div class="mtop"><span>Buy pressure</span>
-        <b>${pct(buyShare, 0)} of ${flow} trades</b></div>
-      <div class="track">${bar(buyShare >= 0.5 ? "fill good" : "fill bad",
+        <b>${flow ? pct(buyShare, 0) + " of " + flow + " trades"
+          : "no trades in 5m"}</b></div>
+      <div class="track">${bar(thinFlow ? "fill thin"
+        : buyShare >= 0.5 ? "fill good" : "fill bad",
         Math.round(buyShare * 100))}</div>
     </div>
     </div>
@@ -1212,15 +1218,26 @@ function renderFunnel(state) {
     $("reasons").innerHTML = "";
     return;
   }
+  // With no free slot the contract checks are skipped, so a verified count
+  // of zero would read as "everything failed" when it means "not asked".
+  const ran = a.verification_ran !== false;
   const steps = [
-    ["seen", a.scanned],
-    ["shortlist", a.shortlisted],
-    ["verified", a.candidates],
-    ["bought", a.entered],
+    ["seen", a.scanned, true],
+    ["shortlist", a.shortlisted, true],
+    ["verified", a.candidates, ran],
+    ["bought", a.entered, ran],
   ];
   container.innerHTML = steps.map((s, i) =>
     `<div class="step"><div class="k">${i ? "▸ " : ""}${s[0]}</div>
-      <div class="v">${s[1].toLocaleString()}</div></div>`).join("");
+      <div class="v${s[2] ? "" : " muted"}">${s[2]
+        ? s[1].toLocaleString() : "—"}</div></div>`).join("");
+  if (!ran) {
+    container.innerHTML += `<div class="note" style="flex:1 1 100%">` +
+      `Contract checks were skipped this cycle` +
+      (a.skipped_reason ? ` — ${escapeHtml(a.skipped_reason)}` : "") +
+      `. They cost several rate-limited lookups each and buy nothing when ` +
+      `there is no slot to act on the answer.</div>`;
+  }
 
   const rejections = a.rejections || {};
   const entries = Object.keys(rejections)

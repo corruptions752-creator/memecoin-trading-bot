@@ -731,3 +731,34 @@ def test_the_activity_feed_shows_the_kind_of_each_event():
     page = page_text()
     assert "class=\"kind" in page
     assert ".kind.buy" in page and ".kind.sell" in page
+
+
+def test_a_skipped_verification_is_not_reported_as_zero_passing(tmp_path):
+    """With no free slot the contract checks never run, and a candidate
+    count of zero then means "not asked" rather than "everything failed".
+    Those are opposite readings of the same number."""
+
+    settings, store = traded(tmp_path)
+    store.save_activity(
+        at=NOW, scanned=300, rejected=295, candidates=0, entered=0,
+        rejections={}, shortlisted=5, verification_ran=False,
+        skipped_reason="at position limit (8)",
+    )
+    activity = build_state(settings, store)["activity"]
+    assert activity["verification_ran"] is False
+
+    page = page_text()
+    assert "verification_ran !== false" in page
+    assert "Contract checks were skipped" in page
+
+
+def test_an_older_database_reports_verification_as_having_run(tmp_path):
+    """The column did not exist before; defaulting it to false would
+    retro-label every recorded scan as skipped."""
+
+    settings, store = traded(tmp_path)
+    store.save_activity(
+        at=NOW, scanned=300, rejected=295, candidates=2, entered=1,
+        rejections={}, shortlisted=5,
+    )
+    assert build_state(settings, store)["activity"]["verification_ran"] is True
