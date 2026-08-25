@@ -33,6 +33,12 @@ log = logging.getLogger(__name__)
 #: terminal shows the strongest reads rather than the whole feed.
 SCANNER_CARD_LIMIT = 24
 
+#: Consecutive failed exits on one position before the engine stops trying
+#: this run. A transaction that lands and reverts still pays its fees, so an
+#: exit that can never fill burns money on every cycle forever. One position
+#: did exactly that 105 times in under five hours.
+MAX_EXIT_ATTEMPTS = 5
+
 
 @dataclass(slots=True)
 class CycleReport:
@@ -96,6 +102,8 @@ class TradingEngine:
         self.enforce_contract_checks = enforce_contract_checks
         self.positions: list[Position] = store.load_open_positions()
         self._held_snapshots: dict[str, TokenSnapshot] = {}
+        # Consecutive failed exits per mint, for this run.
+        self._exit_failures: dict[str, int] = {}
         # Seeded from the restored state so a restart mid-halt does not
         # announce a halt that has been in force for hours.
         self._was_halted = bool(getattr(risk, "halted", False))
@@ -162,6 +170,15 @@ class TradingEngine:
                 self.store.update_position(position)
                 continue
 
+            if self._exit_failures.get(position.mint, 0) >= MAX_EXIT_ATTEMPTS:
+                # Every attempt this run has failed. Retrying burns another
+                # transaction fee for the same result, so hold and say so.
+                log.warning(
+                    "not retrying %s: %d consecutive failed exits",
+                    position.symbol, self._exit_failures[position.mint],
+                )
+                continue
+
             self._execute_exit(position, snapshot, decision, at, report)
 
     def _execute_exit(self, position, snapshot, decision, at, report) -> None:
@@ -194,6 +211,15 @@ class TradingEngine:
             # a target rather than a guarantee.
             self._charge_failed_transaction(error, at)
             report.failed_exits.append((position.symbol, decision.reason))
+            failures = self._exit_failures.get(position.mint, 0) + 1
+            self._exit_failures[position.mint] = failures
+            if failures == MAX_EXIT_ATTEMPTS:
+                self._event(
+                    report, "warn", at,
+                    f"{position.symbol} has failed to sell "
+                    f"{failures} times; holding off until the next run",
+                    symbol=position.symbol, mint=position.mint,
+                )
             self._event(
                 report, "fail", at,
                 f"sell of {position.symbol} failed "
@@ -211,6 +237,7 @@ class TradingEngine:
             return
 
         self.store.record_fill(fill, position.position_id)
+        self._exit_failures.pop(position.mint, None)
 
         proceeds = fill.net_usd
         # Cost basis for the slice being sold, at the average entry price.
@@ -388,7 +415,10 @@ class TradingEngine:
         try:
             return assess(snapshot, self.settings, **kwargs)
         except Exception:  # noqa: BLE001 - reporting must never stop trading
-            log.debug("could not assess %s", snapshot.mint, exc_info=True)
+            log.warning(
+                "could not assess %s; it will be missing from the scan",
+                snapshot.mint, exc_info=True,
+            )
             return None
 
     @staticmethod

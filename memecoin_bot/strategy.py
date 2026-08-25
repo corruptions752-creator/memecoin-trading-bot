@@ -111,6 +111,24 @@ def decide_exit(
             note="price feed returned no price",
         )
 
+    # A tick that prices the position above the whole pool cannot be real:
+    # there is nothing to sell into at that price. The pair feed does return
+    # these -- it briefly quoted a mint at 157,000x its actual price, which
+    # cleared the profit target every cycle and sent the engine into a sell
+    # that could never fill. Ignore the tick rather than act on it, and do
+    # not let it set the high-water mark, which would poison the trailing
+    # stop permanently.
+    if implausible_mark(position, snapshot):
+        return None
+
+    # A peak recorded before the guard existed, or from a tick that arrived
+    # while the pool was deeper, stays poisoned forever: the high-water mark
+    # only ratchets up. Repair it here rather than requiring surgery on the
+    # stored position -- an unreachable trailing stop is a position that can
+    # never take profit again.
+    if peak_is_unreachable(position, snapshot):
+        position.peak_price_usd = max(position.entry_price_usd, price)
+
     position.mark(price)
 
     # --- Liquidity has drained: leave regardless of P&L -------------------
@@ -179,3 +197,25 @@ def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
     """Constrain ``value`` to the inclusive range."""
 
     return max(low, min(high, value))
+
+
+def implausible_mark(position: Position, snapshot: TokenSnapshot) -> bool:
+    """Whether this tick prices the position above the pool behind it.
+
+    Grounded in what an AMM can actually pay rather than in a tuned
+    multiplier: a holding may legitimately be a large share of its pool, but
+    never a multiple of it. A real position that grows past its pool is
+    already an exit the liquidity rules handle.
+    """
+
+    if snapshot.liquidity_usd <= 0:
+        return False  # nothing to compare against; other rules cover it
+    return position.value_usd(snapshot.price_usd) > snapshot.liquidity_usd
+
+
+def peak_is_unreachable(position: Position, snapshot: TokenSnapshot) -> bool:
+    """Whether the recorded peak prices the holding above its own pool."""
+
+    if snapshot.liquidity_usd <= 0 or position.peak_price_usd <= 0:
+        return False
+    return position.value_usd(position.peak_price_usd) > snapshot.liquidity_usd

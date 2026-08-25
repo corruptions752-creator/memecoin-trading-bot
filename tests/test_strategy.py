@@ -1,6 +1,6 @@
 """Tests for entry scoring and the exit ladder."""
 
-from conftest import NOW, make_snapshot
+from conftest import NOW, deterministic_settings, make_snapshot
 
 from memecoin_bot.config import Settings
 from memecoin_bot.models import ExitReason, Position
@@ -200,3 +200,104 @@ def test_full_ladder_sequence(settings):
 
     final = decide_exit(position, make_snapshot(price_usd=0.004), settings, NOW)
     assert final.reason is ExitReason.TRAILING_STOP
+
+
+# --- Bad ticks from the pair feed ----------------------------------------
+
+def test_a_tick_pricing_the_position_above_its_pool_is_ignored():
+    """The pair feed does return these. It quoted one mint at 157,000x its
+    real price, which cleared the profit target on every cycle and sent the
+    engine into a sell that could never fill -- 105 times in five hours."""
+
+    settings = deterministic_settings()
+    position = Position(
+        mint="Mint1", symbol="GLITCH", entry_price_usd=0.0015,
+        quantity=32_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=205_000.0, peak_price_usd=0.0015,
+    )
+    bad = make_snapshot(price_usd=243.0, liquidity_usd=205_000.0)
+
+    assert decide_exit(position, bad, settings, NOW + 60) is None
+
+
+def test_a_bad_tick_does_not_set_the_high_water_mark():
+    """A poisoned peak is permanent: the peak only ever ratchets up, so one
+    bad tick disables the trailing stop for the life of the position."""
+
+    settings = deterministic_settings()
+    position = Position(
+        mint="Mint1", symbol="GLITCH", entry_price_usd=0.0015,
+        quantity=32_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=205_000.0, peak_price_usd=0.0015,
+    )
+    decide_exit(position, make_snapshot(price_usd=243.0,
+                                        liquidity_usd=205_000.0), settings, NOW + 60)
+    assert position.peak_price_usd == 0.0015
+
+
+def test_a_real_gain_inside_the_pool_is_still_acted_on():
+    """The guard must not swallow a genuine winner. A position may be a
+    large share of its pool -- just never a multiple of it."""
+
+    settings = deterministic_settings(take_profit_multiple=3.0)
+    position = Position(
+        mint="Mint1", symbol="RUNNER", entry_price_usd=0.001,
+        quantity=50_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=200_000.0, peak_price_usd=0.001,
+    )
+    # 50,000 units at $0.004 is $200 against a $200,000 pool: plainly real.
+    good = make_snapshot(price_usd=0.004, liquidity_usd=200_000.0)
+
+    decision = decide_exit(position, good, settings, NOW + 60)
+    assert decision is not None
+    assert decision.reason is ExitReason.TAKE_PROFIT
+    assert position.peak_price_usd == 0.004
+
+
+def test_a_pool_with_no_liquidity_falls_through_to_the_other_rules():
+    """With nothing to compare against the guard must not swallow the
+    liquidity-collapse exit, which is the rule that matters there."""
+
+    settings = deterministic_settings()
+    position = Position(
+        mint="Mint1", symbol="DRAINED", entry_price_usd=0.001,
+        quantity=50_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=200_000.0, peak_price_usd=0.001,
+    )
+    decision = decide_exit(
+        position, make_snapshot(price_usd=0.001, liquidity_usd=0.0),
+        settings, NOW + 60,
+    )
+    assert decision is not None
+    assert decision.reason is ExitReason.LIQUIDITY_COLLAPSE
+
+
+def test_a_poisoned_peak_repairs_itself_on_the_next_good_tick():
+    """The high-water mark only ratchets up, so a peak set by a bad tick is
+    permanent and the trailing stop can never fire again. One live position
+    carried a peak 157,000x its entry."""
+
+    settings = deterministic_settings()
+    position = Position(
+        mint="Mint1", symbol="POISONED", entry_price_usd=0.0015,
+        quantity=32_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=205_000.0,
+        peak_price_usd=243.043,          # 32,000 units x $243 = $7.8m
+    )
+    good = make_snapshot(price_usd=0.0016, liquidity_usd=205_000.0)
+
+    decide_exit(position, good, settings, NOW + 60)
+    assert position.peak_price_usd == 0.0016
+    assert position.value_usd(position.peak_price_usd) < good.liquidity_usd
+
+
+def test_a_reachable_peak_is_left_alone():
+    settings = deterministic_settings()
+    position = Position(
+        mint="Mint1", symbol="RUNNER", entry_price_usd=0.001,
+        quantity=50_000.0, cost_usd=50.0, opened_at=NOW,
+        entry_liquidity_usd=200_000.0, peak_price_usd=0.003,
+    )
+    decide_exit(position, make_snapshot(price_usd=0.0025,
+                                        liquidity_usd=200_000.0), settings, NOW + 60)
+    assert position.peak_price_usd == 0.003

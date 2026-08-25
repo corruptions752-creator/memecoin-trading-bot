@@ -908,3 +908,52 @@ def test_a_token_that_cannot_be_assessed_does_not_stop_the_cycle():
 
     assert report.entered == ["ALPHA"], "trading must survive a display failure"
     assert store.scan_tokens() == []
+
+
+def test_an_exit_that_keeps_failing_stops_being_retried():
+    """A transaction that lands and reverts still pays its fees, so an exit
+    that can never fill burns money on every cycle. One position did exactly
+    that 105 times in under five hours."""
+
+    from memecoin_bot.broker import ExecutionFailed
+    from memecoin_bot.engine import MAX_EXIT_ATTEMPTS
+
+    snapshot = make_snapshot(symbol="STUCK")
+    engine, market, store = build_engine([snapshot])
+    engine.run_cycle(NOW)
+    assert engine.positions
+
+    class AlwaysFails:
+        """A broker whose sells never land."""
+
+        def __init__(self, inner):
+            self.inner = inner
+            self.attempts = 0
+
+        def buy(self, *args, **kwargs):
+            return self.inner.buy(*args, **kwargs)
+
+        def sell(self, *args, **kwargs):
+            self.attempts += 1
+            from memecoin_bot.execution import ExecutionResult, FailureReason
+            raise ExecutionFailed(ExecutionResult(
+                succeeded=False, failure=FailureReason.SLIPPAGE_EXCEEDED,
+                network_fee_usd=0.01,
+            ))
+
+    engine.broker = AlwaysFails(engine.broker)
+    market.candidates = []
+    market.set_price(snapshot.mint, snapshot.price_usd * 0.2)  # force a stop
+
+    for i in range(MAX_EXIT_ATTEMPTS + 6):
+        engine.run_cycle(NOW + 600 + i * 60)
+
+    assert engine.broker.attempts == MAX_EXIT_ATTEMPTS, (
+        "the engine must stop retrying an exit that never fills"
+    )
+    assert engine.positions, "the position is still held, not silently dropped"
+
+    warns = [e for e in store.recent_events() if e["kind"] == "warn"]
+    assert any("failed to sell" in e["message"] for e in warns), (
+        "giving up must be visible, not silent"
+    )
