@@ -232,3 +232,34 @@ def test_a_floor_that_arms_at_entry_is_refused(monkeypatch):
 
     with pytest.raises(RuntimeError, match="fire the moment a position opened"):
         load_settings()
+
+
+def test_the_unleashed_profile_deploys_the_whole_bankroll(monkeypatch):
+    """By request: circuit breaker off, all $1,000 working."""
+
+    monkeypatch.setenv("MEMEBOT_MODE", "paper")
+    monkeypatch.setenv("MEMEBOT_PROFILE", "unleashed")
+
+    settings = load_settings()
+
+    assert settings.daily_loss_limit_pct == 1.0
+
+
+def test_unleashed_does_not_widen_deployment(monkeypatch):
+    """70 seeds say raising deployment is a single-lucky-seed artifact: drop
+    each config's best seed and both high-deployment variants go negative.
+    Only the breaker comes off; the shape that produced the 3x winners stays."""
+
+    monkeypatch.setenv("MEMEBOT_MODE", "paper")
+    monkeypatch.setenv("MEMEBOT_PROFILE", "unleashed")
+    unleashed = load_settings()
+
+    monkeypatch.setenv("MEMEBOT_PROFILE", "aggressive")
+    aggressive = load_settings()
+
+    assert unleashed.risk_fraction_per_trade == aggressive.risk_fraction_per_trade
+    assert unleashed.max_open_positions == aggressive.max_open_positions
+    assert unleashed.daily_loss_limit_pct > aggressive.daily_loss_limit_pct
+    # The proven exit mechanism is untouched -- both 3x winners came through it.
+    assert unleashed.take_profit_multiple == aggressive.take_profit_multiple
+    assert unleashed.trailing_stop_pct == aggressive.trailing_stop_pct

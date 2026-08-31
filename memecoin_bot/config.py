@@ -66,6 +66,49 @@ PROFILES = {
         "min_buy_sell_ratio_5m": 0.6,
         "max_momentum_5m_pct": 1.50,
     },
+    # Circuit breaker off, by request. The slot count is NOT raised, and
+    # that is a deliberate departure from "deploy the whole bankroll" --
+    # measured, not assumed.
+    #
+    # Sweeping deployment across 70 seeds of identical synthetic paths, with
+    # the breaker off throughout:
+    #
+    #     config              mean   median    best   win   mean w/o best seed
+    #     4 slots x25% (100%)  6.31  -253.82  5020.97 22/70   -66.36
+    #     5 slots x15% ( 75%) 40.93   -99.19  2899.02 28/70    -0.49
+    #     3 slots x 5% ( 15%) 24.38   -10.10   606.90 34/70   +15.94
+    #
+    # The last column is the whole story. Drop each config's single luckiest
+    # seed and the two high-deployment ones go negative: their entire mean is
+    # one lottery seed. Only the most concentrated, least-deployed config
+    # survives the check, and it also has the best median, the most winning
+    # seeds and the smallest worst case.
+    #
+    # Raising slots does the same thing in reverse: 5 -> 8 -> 12 -> 20 slots
+    # ran +30, -2, -110, -182. More slots means filling them with marginal
+    # candidates, and the marginal candidate is where the negative expectancy
+    # lives. Run 1's own record agrees -- 10 of 23 trades never traded 20%
+    # above entry and cost $155.
+    #
+    # So this profile turns the breaker off and otherwise leaves the shape
+    # that actually produced both 3x winners alone. Deploying more is a
+    # one-line change once there is evidence for it.
+    "unleashed": {
+        "risk_fraction_per_trade": 0.05,
+        "max_open_positions": 8,
+        "stop_loss_pct": 0.35,
+        "take_profit_multiple": 3.0,
+        "give_back_ladder": ((1.5, 1.0), (2.0, 1.25)),
+        "trailing_stop_pct": 0.35,
+        # Off: the bot may lose the entire bankroll in a day without halting.
+        "daily_loss_limit_pct": 1.0,
+        "min_entry_score": 0.35,
+        "min_liquidity_usd": 10_000.0,
+        "lp_substitute_min_liquidity_usd": 25_000.0,
+        "min_volume_24h_usd": 8_000.0,
+        "min_buy_sell_ratio_5m": 0.6,
+        "max_momentum_5m_pct": 1.50,
+    },
 }
 
 # How hard verification bites. Contract checks were rejecting every token
