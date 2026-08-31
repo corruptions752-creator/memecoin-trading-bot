@@ -96,7 +96,12 @@ PROFILES = {
     "unleashed": {
         "risk_fraction_per_trade": 0.05,
         "max_open_positions": 8,
-        "stop_loss_pct": 0.35,
+        # 0.35 -> 0.25. Run 1 closed 107 trades and 62 of them never traded
+        # 20% above entry, costing $868 -- a bigger hole than the round-trips
+        # the first 23 trades made look decisive. A tighter stop is the only
+        # change that survived a leave-one-out check across 50 seeds: mean
+        # -$24.63 -> -$0.48, median -$76 -> -$41, worst -$462 -> -$381.
+        "stop_loss_pct": 0.25,
         "take_profit_multiple": 3.0,
         "give_back_ladder": ((1.5, 1.0), (2.0, 1.25)),
         "trailing_stop_pct": 0.35,
