@@ -42,6 +42,85 @@ def _configure_logging(verbose: bool) -> None:
     )
 
 
+def _panel_report() -> int:
+    """Print what the panel has learned: strategies, regimes, agent accuracy.
+
+    The read-only view of the learning loop. Everything here comes from
+    closed trades; nothing is simulated.
+    """
+
+    from .config import load_settings
+    from .statistics_tools import MIN_MEANINGFUL_SAMPLE, expectancy, wilson_interval
+    from .store import Store
+    from .trade_memory import TradeMemory, agent_accuracy, base_rate
+
+    settings = load_settings()
+    store = Store(settings.database_path)
+    memory = TradeMemory(store.connection)
+    rows = memory.closed()
+
+    if not rows:
+        print("No closed setups recorded yet. INSUFFICIENT DATA.")
+        return 0
+
+    print(f"Closed setups: {len(rows)}")
+    if len(rows) < MIN_MEANINGFUL_SAMPLE:
+        print(
+            f"Fewer than {MIN_MEANINGFUL_SAMPLE}: everything below is "
+            "indicative only, not a measured edge.\n"
+        )
+
+    by_strategy: dict[str, list] = {}
+    by_regime: dict[str, list] = {}
+    for row in rows:
+        by_strategy.setdefault(row["strategy"], []).append(row)
+        by_regime.setdefault(row["regime"], []).append(row)
+
+    print("\nBy strategy")
+    for name, group in sorted(
+        by_strategy.items(),
+        key=lambda kv: -sum(r["realized_usd"] or 0 for r in kv[1]),
+    ):
+        results = [r["realized_usd"] or 0.0 for r in group]
+        wins = sum(1 for r in group if r["win"])
+        rate, low, high = wilson_interval(wins, len(group))
+        print(
+            f"  {name:<12}{len(group):>4} trades  {rate:>5.0%} win "
+            f"[{low:.0%}-{high:.0%}]  ${sum(results):>8,.2f}  "
+            f"${expectancy(results):>6,.2f}/trade"
+        )
+
+    print("\nBy regime")
+    for name, group in sorted(by_regime.items(), key=lambda kv: -len(kv[1])):
+        results = [r["realized_usd"] or 0.0 for r in group]
+        wins = sum(1 for r in group if r["win"])
+        print(
+            f"  {name:<18}{len(group):>4} trades  {wins / len(group):>5.0%} win  "
+            f"${sum(results):>8,.2f}"
+        )
+
+    accuracy = agent_accuracy(rows)
+    rate = base_rate(rows)
+    print(f"\nAgent skill (win rate {rate:.0%}; lift is accuracy above what")
+    print(" that direction scores by default -- a always-bearish agent looks")
+    print(" brilliant on raw accuracy when most trades lose)")
+    if not accuracy:
+        print("  no scored calls yet")
+    for name, stats in sorted(accuracy.items(), key=lambda kv: -kv[1]["lift"]):
+        calls = int(stats["calls"])
+        lift = stats["lift"]
+        verdict = (
+            "informative" if lift > 0.05
+            else "no better than chance" if lift > -0.05
+            else "worse than chance"
+        )
+        print(
+            f"  {name:<12}{stats['accuracy']:>5.0%} raw of {calls:>4} calls  "
+            f"lift {lift:+.0%}  {verdict}"
+        )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Parse arguments and dispatch to a command."""
 
@@ -50,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         "command",
         choices=(
             "run", "scan", "report", "close", "simulate", "sweep", "verify",
+            "panel",
             "doctor", "dashboard", "export",
         ),
         help="what to do",
@@ -117,6 +197,9 @@ def main(argv: list[str] | None = None) -> int:
         print()
         print(summarize(store, settings.starting_bankroll_usd).render())
         return 0
+
+    if args.command == "panel":
+        return _panel_report()
 
     if args.command == "simulate":
         from .simulate import run_simulation

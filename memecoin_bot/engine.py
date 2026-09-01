@@ -25,7 +25,10 @@ from .safety import (
     AuthorityProvider, UnknownAuthorityProvider, categorize, screen,
 )
 from .store import Store
+from .agents import AnalysisContext, Decision, run_panel
 from .playbooks import PLAYBOOKS
+from .regime import detect as detect_regime
+from .trade_memory import SetupFeatures, TradeMemory
 from .strategy import decide_entry, decide_exit
 
 log = logging.getLogger(__name__)
@@ -57,6 +60,10 @@ class CycleReport:
     a quiet scan instead of showing an empty screen."""
     candidates: int = 0
     """Passed every safety check and scored above the entry threshold."""
+    regime: str = "unknown"
+    """Market regime this cycle, measured from the breadth of the scan.
+    Recorded on each trade so results can be split by the conditions they
+    were earned in."""
     shortlisted: int = 0
     """Cleared the free market checks and so were worth paying for on-chain
     verification. Contract checks run only on these."""
@@ -103,6 +110,9 @@ class TradingEngine:
         self.enforce_contract_checks = enforce_contract_checks
         self.positions: list[Position] = store.load_open_positions()
         self._held_snapshots: dict[str, TokenSnapshot] = {}
+        self.memory = TradeMemory(store.connection)
+        self._regime = "unknown"
+        self._verdicts: dict = {}
         # Consecutive failed exits per mint, for this run.
         self._exit_failures: dict[str, int] = {}
         # Seeded from the restored state so a restart mid-halt does not
@@ -119,6 +129,7 @@ class TradingEngine:
         at = time.time() if now is None else now
         report = CycleReport()
         self._held_snapshots = {}
+        self._verdicts = {}
 
         if self.risk.roll_day(at):
             self.risk.persist(self.store, at)
@@ -263,6 +274,7 @@ class TradingEngine:
         if closing:
             self._block_reentry(position.mint, decision.reason, at)
             self.store.close_position(position, decision.reason, at)
+            self._remember_exit(position, decision.reason, at)
             self.positions.remove(position)
             report.exited.append((position.symbol, decision.reason))
             self._event(
@@ -412,6 +424,58 @@ class TradingEngine:
         except Exception:  # noqa: BLE001 - reporting must never stop trading
             log.debug("could not record scan tokens", exc_info=True)
 
+    def _remember_exit(self, position, reason, at: float) -> None:
+        """Close out the setup record with how the trade actually went.
+
+        Maximum favourable excursion comes from the peak the position
+        tracked while open; maximum adverse is bounded by the stop, since
+        the engine only sees prices at cycle boundaries. Both are recorded
+        as measured, not modelled.
+        """
+
+        if position.position_id is None:
+            return
+        entry = position.entry_price_usd or 1.0
+        try:
+            self.memory.record_exit(
+                position_id=position.position_id,
+                closed_at=at,
+                held_hours=position.age_seconds(at) / 3_600.0,
+                max_favourable=(position.peak_price_usd / entry) - 1.0,
+                max_adverse=min(
+                    0.0, (position.realized_usd / position.cost_usd)
+                    if position.cost_usd else 0.0
+                ),
+                exit_reason=getattr(reason, "value", str(reason)),
+                realized_usd=position.realized_usd,
+            )
+        except Exception:  # noqa: BLE001 - bookkeeping must not break an exit
+            log.exception("could not record exit features for %s", position.symbol)
+
+    def _review(self, entry, market, at: float, size_usd: float):
+        """Put one candidate in front of the analyst panel.
+
+        Returns None when the panel cannot run at all, which is treated as
+        "no opinion" rather than as a rejection -- the playbooks and the
+        risk rules still stand on their own.
+        """
+
+        try:
+            context = AnalysisContext(
+                snapshot=entry.snapshot,
+                settings=self.settings,
+                market=tuple(market),
+                history=tuple(self.memory.closed()),
+                open_positions=tuple(self.positions),
+                regime=self._regime,
+                position_size_usd=size_usd,
+            )
+            context.proposed_strategy = entry.strategy
+            return run_panel(context)
+        except Exception:  # noqa: BLE001 - analysis must never kill a cycle
+            log.exception("panel failed for %s", entry.snapshot.symbol)
+            return None
+
     def _assess(self, snapshot: TokenSnapshot, **kwargs) -> dict | None:
         """Assess a token for the display, never at the cost of a cycle.
 
@@ -521,6 +585,10 @@ class TradingEngine:
         }
 
         size_usd = self.risk.position_size_usd()
+        regime, regime_evidence = detect_regime(candidates)
+        self._regime = regime.value
+        report.regime = regime.value
+        log.debug("regime %s from %s", regime.value, regime_evidence)
         shortlist: list = []
         ranked: list = []
         # Scanner reads for tokens that never make it past phase one. They
@@ -560,6 +628,27 @@ class TradingEngine:
                     snapshot, position_size_usd=size_usd,
                 ))
                 continue
+            # The panel reviews every shortlisted candidate. It can veto,
+            # and it sets conviction -- the playbook proposes, the panel
+            # disposes.
+            verdict = self._review(entry, candidates, at, size_usd)
+            if verdict is not None:
+                if verdict.decision is not Decision.PAPER_TRADE:
+                    report.rejected += 1
+                    key = f"panel {verdict.decision.value.lower()}"
+                    report.rejections[key] = report.rejections.get(key, 0) + 1
+                    self._event(
+                        report, "panel", at,
+                        f"{snapshot.symbol}: {verdict.decision.value} at "
+                        f"{verdict.confidence:.0f}/100",
+                        symbol=snapshot.symbol, mint=snapshot.mint,
+                        detail=verdict.render(),
+                    )
+                    self._append(watched, self._assess(
+                        snapshot, position_size_usd=size_usd,
+                    ))
+                    continue
+                self._verdicts[snapshot.mint] = verdict
             shortlist.append(entry)
 
         # Phase two: the contract checks. Each one costs several network
@@ -724,6 +813,18 @@ class TradingEngine:
             strategy=entry.strategy,
         )
         position = self.store.open_position(position)
+        verdict = self._verdicts.get(snapshot.mint)
+        self.memory.record_entry(
+            position_id=position.position_id,
+            mint=snapshot.mint, symbol=snapshot.symbol,
+            strategy=entry.strategy, regime=self._regime, opened_at=at,
+            features=SetupFeatures.from_snapshot(snapshot),
+            entry_confidence=(verdict.confidence if verdict else 0.0),
+            reports={
+                name: [r.stance.value, r.confidence]
+                for name, r in (verdict.reports.items() if verdict else ())
+            },
+        )
         self.store.record_fill(fill, position.position_id)
         self.positions.append(position)
         report.entered.append(snapshot.symbol)
@@ -777,6 +878,7 @@ class TradingEngine:
             position.quantity = 0.0
             self._block_reentry(position.mint, reason, at)
             self.store.close_position(position, reason, at)
+            self._remember_exit(position, reason, at)
             self.positions.remove(position)
             closed += 1
         return closed

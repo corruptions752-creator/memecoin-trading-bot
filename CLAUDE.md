@@ -17,6 +17,44 @@ Playbooks live in `memecoin_bot/playbooks.py`. Each has a name, a scorer, a
 threshold and a cap on how many of the open slots it may hold at once, so no
 single thesis can take the whole book and no single regime failure wipes it.
 
+## The analyst panel
+
+Entries are reviewed by a panel of specialist agents in `memecoin_bot/agents/`.
+They are deterministic Python, not model calls: a cycle runs in Actions every
+few minutes with no API budget and has to be replayable from the ledger.
+
+Adding an agent is appending to `ROSTER`. Nothing else changes — context is
+passed whole, and the lead groups by signal family rather than by a list of
+names.
+
+Two mechanisms carry the design; do not remove them without replacing them:
+
+- **Signal families.** Reports declare which data they read. The lead keeps
+  the strongest voice per family and weighs families, rather than averaging
+  agents — five agents reading the 5-minute candle are one opinion in five
+  boxes. `HISTORY` outweighs the tape because it is the only family marked
+  against reality.
+- **Evidence caps confidence.** No comparable history caps the score at 55;
+  under 30 matched setups caps it at 70; high conviction requires a real
+  sample. Agreement never substitutes for observations.
+
+`INSUFFICIENT DATA` is a first-class result and cannot carry confidence — the
+report class raises if you try. The sentiment agent returns it every time on
+purpose: no social feed is connected, and inferring sentiment from trade
+counts would double-count the momentum agent.
+
+Run `python -m memecoin_bot panel` for strategy, regime and agent-skill
+tables built from closed setups.
+
+### Agent skill is measured as lift, not accuracy
+
+Score a bearish call against the overall win rate and a permanently bearish
+agent looks like the best forecaster on the panel. It did exactly that here
+on the first run: the adversary showed 76% accuracy and "+52% vs base" when
+24% of trades won — it had simply said one thing every time. Lift is measured
+per direction against that direction's own baseline, and the adversary
+correctly drops to +0%. Never quote raw accuracy without it.
+
 ## Playbook results so far (60 seeds, synthetic paths)
 
 | playbook | trades | win% | per trade | mean/seed | **w/o best seed** |

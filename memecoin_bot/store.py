@@ -197,6 +197,16 @@ class Store:
                     f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
                 )
 
+    @property
+    def connection(self):
+        """The live connection, for stores that share this database file.
+
+        TradeMemory writes alongside the ledger so a setup and its outcome
+        commit together rather than drifting apart across two files.
+        """
+
+        return self._connection
+
     def close(self) -> None:
         """Close the underlying connection."""
 
