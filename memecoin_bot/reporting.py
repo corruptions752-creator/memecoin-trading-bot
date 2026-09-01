@@ -62,6 +62,9 @@ class Performance:
     average_loss_usd: float
     exit_breakdown: dict[str, int]
     pnl_by_exit: dict[str, float] = field(default_factory=dict)
+    by_strategy: dict[str, dict[str, float]] = field(default_factory=dict)
+    """Trades, wins and P&L per playbook, so a losing thesis is visible
+    instead of averaged into the others."""
     max_drawdown: float = 0.0
     sharpe: float = 0.0
     expectancy_usd: float = 0.0
@@ -117,6 +120,18 @@ class Performance:
             ):
                 pnl = self.pnl_by_exit.get(reason, 0.0)
                 lines.append(f"  {reason:<20}{count:>4}   ${pnl:>10,.2f}")
+        if self.by_strategy:
+            lines.append("By playbook     :")
+            for name, stats in sorted(
+                self.by_strategy.items(), key=lambda item: -item[1]["pnl"]
+            ):
+                trades = int(stats["trades"])
+                rate = stats["wins"] / trades if trades else 0.0
+                each = stats["pnl"] / trades if trades else 0.0
+                lines.append(
+                    f"  {name:<12}{trades:>4} trades  {rate:>5.0%} win  "
+                    f"${stats['pnl']:>9,.2f}  ${each:>7,.2f}/trade"
+                )
         return "\n".join(lines)
 
 
@@ -141,10 +156,24 @@ def summarize(store: Store, starting_bankroll_usd: float = 0.0) -> Performance:
 
     breakdown: dict[str, int] = {}
     pnl_by_exit: dict[str, float] = {}
+    # Per-playbook results. Three theses averaged into one number say
+    # nothing about which of them is worth keeping, so they are split here
+    # and a losing playbook can be retired on its own record.
+    by_strategy: dict[str, dict[str, float]] = {}
     for row in closed:
         reason = row["close_reason"] or "unknown"
         breakdown[reason] = breakdown.get(reason, 0) + 1
         pnl_by_exit[reason] = pnl_by_exit.get(reason, 0.0) + row["realized_usd"]
+
+        try:
+            name = row["strategy"] or "momentum"
+        except (IndexError, KeyError):
+            name = "momentum"
+        stats = by_strategy.setdefault(name, {"trades": 0, "wins": 0, "pnl": 0.0})
+        stats["trades"] += 1
+        stats["pnl"] += row["realized_usd"]
+        if row["realized_usd"] > 0:
+            stats["wins"] += 1
 
     # Equity curve anchored at starting capital, in close order. Falling
     # back to the total risked keeps drawdown bounded when no bankroll is
@@ -178,6 +207,7 @@ def summarize(store: Store, starting_bankroll_usd: float = 0.0) -> Performance:
         average_loss_usd=sum(losses) / len(losses) if losses else 0.0,
         exit_breakdown=breakdown,
         pnl_by_exit=pnl_by_exit,
+        by_strategy=by_strategy,
         max_drawdown=max_drawdown(equity) if results else 0.0,
         sharpe=sharpe_ratio(results),
         expectancy_usd=sum(results) / len(results) if results else 0.0,

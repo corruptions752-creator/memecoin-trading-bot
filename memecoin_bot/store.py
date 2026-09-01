@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS positions (
     realized_usd        REAL    NOT NULL DEFAULT 0,
     took_first_profit   INTEGER NOT NULL DEFAULT 0,
     unverified_reasons  TEXT    NOT NULL DEFAULT '[]',
+    strategy            TEXT    NOT NULL DEFAULT 'momentum',
     closed_at           REAL,
     close_reason        TEXT
 );
@@ -130,6 +131,16 @@ def _json_column(row: sqlite3.Row, name: str, default):
         return default
 
 
+def _column_text(row: sqlite3.Row, name: str, default: str = "") -> str:
+    """Read a text column that older database files may not carry."""
+
+    try:
+        value = row[name]
+    except (IndexError, KeyError):
+        return default
+    return default if value is None else str(value)
+
+
 def _column(row: sqlite3.Row, name: str, default: int = 0) -> int:
     """Read a column that an older database may not have.
 
@@ -168,6 +179,7 @@ class Store:
         ("activity", "near_misses", "TEXT NOT NULL DEFAULT '[]'"),
         ("activity", "verification_ran", "INTEGER NOT NULL DEFAULT 1"),
         ("positions", "unverified_reasons", "TEXT NOT NULL DEFAULT '[]'"),
+        ("positions", "strategy", "TEXT NOT NULL DEFAULT 'momentum'"),
     )
 
     def _migrate(self) -> None:
@@ -200,8 +212,9 @@ class Store:
             INSERT INTO positions (
                 mint, symbol, entry_price_usd, quantity, initial_quantity,
                 cost_usd, opened_at, entry_liquidity_usd, peak_price_usd,
-                realized_usd, took_first_profit, unverified_reasons
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                realized_usd, took_first_profit, unverified_reasons,
+                strategy
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 position.mint,
@@ -216,6 +229,7 @@ class Store:
                 position.realized_usd,
                 int(position.took_first_profit),
                 json.dumps(list(position.unverified_reasons)),
+                position.strategy,
             ),
         )
         self._connection.commit()
@@ -672,6 +686,7 @@ class Store:
             peak_price_usd=row["peak_price_usd"],
             realized_usd=row["realized_usd"],
             took_first_profit=bool(row["took_first_profit"]),
+            strategy=(_column_text(row, "strategy") or "momentum"),
             initial_quantity=row["initial_quantity"],
             unverified_reasons=tuple(
                 _json_column(row, "unverified_reasons", [])

@@ -25,6 +25,7 @@ from .safety import (
     AuthorityProvider, UnknownAuthorityProvider, categorize, screen,
 )
 from .store import Store
+from .playbooks import PLAYBOOKS
 from .strategy import decide_entry, decide_exit
 
 log = logging.getLogger(__name__)
@@ -505,6 +506,20 @@ class TradingEngine:
         held = {position.mint for position in self.positions}
         blocked = self.store.blocked_mints(at)
 
+        # Withhold any playbook already holding its share of the open slots,
+        # so one thesis firing constantly cannot crowd the others out and
+        # quietly turn the book back into a single strategy.
+        open_by_strategy: dict[str, int] = {}
+        for position in self.positions:
+            open_by_strategy[position.strategy] = (
+                open_by_strategy.get(position.strategy, 0) + 1
+            )
+        allowed = {
+            playbook.name for playbook in PLAYBOOKS
+            if open_by_strategy.get(playbook.name, 0)
+            < playbook.slot_cap(self.settings.max_open_positions)
+        }
+
         size_usd = self.risk.position_size_usd()
         shortlist: list = []
         ranked: list = []
@@ -535,7 +550,7 @@ class TradingEngine:
                 ))
                 continue
 
-            entry = decide_entry(snapshot, self.settings)
+            entry = decide_entry(snapshot, self.settings, allowed=allowed)
             if entry is None:
                 report.rejected += 1
                 report.rejections["low score"] = (
@@ -706,6 +721,7 @@ class TradingEngine:
             entry_liquidity_usd=snapshot.liquidity_usd,
             peak_price_usd=fill.price_usd,
             unverified_reasons=entry.unverified_reasons,
+            strategy=entry.strategy,
         )
         position = self.store.open_position(position)
         self.store.record_fill(fill, position.position_id)

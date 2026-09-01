@@ -80,14 +80,35 @@ def score_entry(snapshot: TokenSnapshot, settings: Settings) -> tuple[float, tup
 
 
 def decide_entry(
-    snapshot: TokenSnapshot, settings: Settings
+    snapshot: TokenSnapshot,
+    settings: Settings,
+    *,
+    allowed: "set[str] | None" = None,
 ) -> EntryDecision | None:
-    """Return an entry instruction when the candidate clears the threshold."""
+    """Return the best entry any enabled playbook offers for this token.
 
-    score, notes = score_entry(snapshot, settings)
-    if score < settings.min_entry_score:
-        return None
-    return EntryDecision(snapshot=snapshot, score=score, notes=notes)
+    Every playbook scores the token and the highest wins, so a token that
+    only one thesis likes is still tradeable while one that several like
+    goes in on its strongest reading. ``allowed`` lets the caller withhold
+    playbooks that are already at their slot cap.
+    """
+
+    from .playbooks import PLAYBOOKS
+
+    best: EntryDecision | None = None
+    for playbook in PLAYBOOKS:
+        if allowed is not None and playbook.name not in allowed:
+            continue
+        score, notes = playbook.score(snapshot, settings)
+        threshold = playbook.min_score or settings.min_entry_score
+        if score < threshold:
+            continue
+        if best is None or score > best.score:
+            best = EntryDecision(
+                snapshot=snapshot, score=score, notes=notes,
+                strategy=playbook.name,
+            )
+    return best
 
 
 def decide_exit(

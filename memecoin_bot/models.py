@@ -146,6 +146,9 @@ class Position:
     initial_quantity: float = 0.0
     unverified_reasons: tuple[str, ...] = ()
     """Verification findings this position was opened in spite of."""
+    strategy: str = "momentum"
+    """Which playbook opened this. Carried so P&L splits per thesis instead
+    of averaging three different ideas into one meaningless number."""
     position_id: int | None = None
 
     def __post_init__(self) -> None:
@@ -218,6 +221,8 @@ class EntryDecision:
     snapshot: TokenSnapshot
     score: float
     notes: tuple[str, ...] = ()
+    strategy: str = "momentum"
+    """The playbook that produced this decision."""
     unverified_reasons: tuple[str, ...] = ()
     """Verification findings this trade was taken in spite of. Empty when the
     token passed cleanly. Carried onto the position so results can be split

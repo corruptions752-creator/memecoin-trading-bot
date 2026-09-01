@@ -121,3 +121,29 @@ def test_the_report_renders_every_metric():
 
 def test_an_empty_store_reports_no_trades():
     assert "No closed trades yet." in summarize(Store(":memory:"), 1_000.0).render()
+
+
+def test_results_are_split_per_playbook(tmp_path):
+    """Three theses averaged into one number cannot tell you which to keep."""
+
+    from memecoin_bot.models import ExitReason, Position
+    from memecoin_bot.reporting import summarize
+    from memecoin_bot.store import Store
+
+    store = Store(str(tmp_path / "t.sqlite3"))
+    for name, pnl in (("momentum", 40.0), ("momentum", -10.0), ("reversal", -25.0)):
+        position = store.open_position(Position(
+            mint="M" * 32, symbol="T", entry_price_usd=1.0, quantity=1.0,
+            cost_usd=50.0, opened_at=0.0, entry_liquidity_usd=10_000.0,
+            strategy=name,
+        ))
+        position.realized_usd = pnl
+        store.close_position(position, ExitReason.STOP_LOSS, 1.0)
+
+    performance = summarize(store, 1_000.0)
+
+    assert performance.by_strategy["momentum"]["trades"] == 2
+    assert performance.by_strategy["momentum"]["pnl"] == 30.0
+    assert performance.by_strategy["momentum"]["wins"] == 1
+    assert performance.by_strategy["reversal"]["pnl"] == -25.0
+    assert "By playbook" in performance.render()
