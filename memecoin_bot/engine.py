@@ -26,6 +26,7 @@ from .safety import (
 )
 from .store import Store
 from .agents import AnalysisContext, Decision, run_panel
+from .evidence_gate import size_multiplier
 from .playbooks import PLAYBOOKS
 from .regime import detect as detect_regime
 from .trade_memory import SetupFeatures, TradeMemory
@@ -776,6 +777,35 @@ class TradingEngine:
 
         snapshot: TokenSnapshot = entry.snapshot
         size_usd = self.risk.position_size_usd()
+
+        # Size by what this playbook's own record is worth, then by what
+        # the panel made of this particular setup. Both only ever cut.
+        gate, gate_reason = size_multiplier(
+            self.memory.closed(), entry.strategy
+        )
+        verdict = self._verdicts.get(snapshot.mint)
+        conviction = verdict.size_multiplier if verdict else 1.0
+        scaled = size_usd * gate * max(conviction, 0.0)
+        if scaled < size_usd:
+            log.info(
+                "sizing %s at %.0f%% of normal: %s",
+                snapshot.symbol, 100 * scaled / size_usd if size_usd else 0,
+                gate_reason,
+            )
+        size_usd = scaled
+
+        if size_usd < self.settings.min_position_usd:
+            report.rejected += 1
+            report.rejections["throttled below minimum"] = (
+                report.rejections.get("throttled below minimum", 0) + 1
+            )
+            self._event(
+                report, "panel", at,
+                f"{snapshot.symbol}: skipped, sized down to ${size_usd:,.2f}",
+                symbol=snapshot.symbol, mint=snapshot.mint,
+                detail=gate_reason,
+            )
+            return
 
         try:
             fill = self.broker.buy(

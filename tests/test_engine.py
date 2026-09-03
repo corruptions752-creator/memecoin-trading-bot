@@ -60,8 +60,16 @@ def test_capital_moves_from_cash_into_the_position():
 
     assert engine.risk.cash_usd < 1_000.0
     assert engine.risk.open_cost_usd > 0
-    # One percent of bankroll, plus costs.
-    assert 9.0 < engine.positions[0].cost_usd < 11.0
+
+    # One percent of bankroll is the full-size ticket, but a setup with no
+    # comparable history is sized down by the panel rather than taken at
+    # full conviction, so the position is a fraction of that. Both the
+    # multiplier and the floor matter: it must be smaller than full size
+    # and it must not round away to nothing.
+    full_size = engine.risk.bankroll_usd * engine.settings.risk_fraction_per_trade
+    cost = engine.positions[0].cost_usd
+    assert 0 < cost < full_size
+    assert cost >= engine.settings.min_position_usd
 
 
 def test_a_rugged_token_is_never_bought():
@@ -957,3 +965,24 @@ def test_an_exit_that_keeps_failing_stops_being_retried():
     assert any("failed to sell" in e["message"] for e in warns), (
         "giving up must be visible, not silent"
     )
+
+
+def test_a_throttled_playbook_takes_a_smaller_position():
+    """A losing record cuts size; the gate only ever cuts."""
+
+    from memecoin_bot.evidence_gate import EXPLORATION_FLOOR, MIN_JUDGEABLE
+
+    engine, _, _ = build_engine([make_snapshot()])
+    engine.memory._connection.executemany(
+        "INSERT INTO trade_features (position_id, mint, symbol, strategy, "
+        "regime, opened_at, closed_at, realized_usd, win) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        [(900 + i, "M", "OLD", "momentum", "sideways", 0.0, 1.0, -10.0, 0)
+         for i in range(MIN_JUDGEABLE)],
+    )
+    engine.memory._connection.commit()
+    engine.run_cycle(NOW)
+
+    if engine.positions:
+        full = engine.risk.bankroll_usd * engine.settings.risk_fraction_per_trade
+        assert engine.positions[0].cost_usd <= full * (EXPLORATION_FLOOR + 0.05)

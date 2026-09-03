@@ -93,6 +93,35 @@ PROFILES = {
     # So this profile turns the breaker off and otherwise leaves the shape
     # that actually produced both 3x winners alone. Deploying more is a
     # one-line change once there is evidence for it.
+    # Capital preservation first. Every number here was measured, not
+    # chosen: across 70 seeds with the breaker off, 3 slots x 5% was the
+    # ONLY configuration whose mean survived dropping its luckiest seed
+    # (+$15.94), and it also had the best median (-$10.10), the smallest
+    # worst case (-$281.85) and the most winning seeds (34/70).
+    #
+    # It deploys 15% of the bankroll. That is the point. Live expectancy
+    # across 45 trades is -$9.82 a trade and no playbook is positive, so
+    # size is the last thing that should go up -- Kelly is well below zero
+    # and scaling a losing edge only loses faster.
+    "guarded": {
+        "risk_fraction_per_trade": 0.05,
+        "max_open_positions": 3,
+        "stop_loss_pct": 0.25,
+        "take_profit_multiple": 3.0,
+        "give_back_ladder": ((1.5, 1.0), (2.0, 1.25)),
+        "trailing_stop_pct": 0.35,
+        # Back on, and tight. Turning it off cost about $126 of worst case
+        # for ~$19 of mean; under a preservation mandate that trade is the
+        # wrong way round.
+        "daily_loss_limit_pct": 0.05,
+        # Raised: the screen should reject far more than it takes.
+        "min_entry_score": 0.45,
+        "min_liquidity_usd": 25_000.0,
+        "lp_substitute_min_liquidity_usd": 50_000.0,
+        "min_volume_24h_usd": 20_000.0,
+        "min_buy_sell_ratio_5m": 0.7,
+        "max_momentum_5m_pct": 0.90,
+    },
     "unleashed": {
         "risk_fraction_per_trade": 0.05,
         "max_open_positions": 8,

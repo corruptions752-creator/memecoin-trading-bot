@@ -4,6 +4,24 @@ Paper-trading meme coin bot. Runs a cycle every few minutes in GitHub
 Actions, commits its ledger back to the repo, publishes a dashboard to Pages.
 No real money is at risk anywhere in this repository.
 
+## Standing direction: capital preservation outranks activity
+
+Do not force trades. When no setup has a demonstrated edge the correct
+output is **"NO TRADE — insufficient edge"** and cash. Size is the last
+thing to raise while expectancy is negative.
+
+`guarded` is the live profile: 3 slots x 5% (15% deployed), 5% daily
+breaker, 25% stop, entry score 0.45, $25k minimum liquidity. Every number
+was measured — across 70 seeds, 3 slots x 5% was the only configuration
+whose mean survived dropping its luckiest seed.
+
+`memecoin_bot/evidence_gate.py` sizes each playbook by its own live record.
+A playbook that is negative over 20+ closed trades is throttled to 25% of
+normal — throttled, not switched off, because cutting a thesis to zero
+freezes its evidence at its worst moment and it can never earn its way
+back. A positive record that goes negative without its single best trade
+gets half size.
+
 ## Standing direction: run multiple win strategies
 
 **The bot must pursue several independent winning strategies, not one.**
@@ -54,6 +72,32 @@ on the first run: the adversary showed 76% accuracy and "+52% vs base" when
 24% of trades won — it had simply said one thing every time. Lift is measured
 per direction against that direction's own baseline, and the adversary
 correctly drops to +0%. Never quote raw accuracy without it.
+
+## Live results after the reset — the simulation did not transfer
+
+45 closed trades, $1,000 -> **-$442.06**, 22.2% win, expectancy
+**-$9.82/trade**. All three playbooks negative live:
+
+| playbook | trades | live per trade | 60-seed sim said |
+|---|---:|---:|---:|
+| momentum | 30 | -$9.57 | -$2.30 |
+| trend | 13 | **-$10.97** | **+$5.33** |
+| reversal | 2 | -$6.19 | untested |
+
+**`trend` was the sim's clear winner and is the worst performer live.** 13
+trades is a small sample, but the direction is opposite. Treat every
+synthetic-path ranking as a hypothesis to test live, never as a result.
+
+**Panel confidence does not yet predict outcomes.** Splitting 23 scored
+setups at the median: low-confidence half -$9.94/trade, high-confidence
+half -$10.38. Correlation +0.148 at n=23 — indistinguishable from zero. The
+panel is correctly refusing to be confident (range 52-61) but it is not
+discriminating either, because it has no winning history to discriminate
+with. Do not weight it as if it worked until this table says it does.
+
+`liquidity_collapse` is again the second-biggest loss bucket: -$348 over 9
+exits. Rug exposure at entry, not exit timing — raising the exit floor was
+already tested and made things worse.
 
 ## Playbook results so far (60 seeds, synthetic paths)
 
