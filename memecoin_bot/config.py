@@ -35,6 +35,8 @@ PROFILES = {
         "min_volume_24h_usd": 50_000.0,
         "min_buy_sell_ratio_5m": 0.8,
         "max_momentum_5m_pct": 0.60,
+        "min_pair_age_hours": 24.0,
+        "earnings_only": False,
     },
     "balanced": {
         "risk_fraction_per_trade": 0.03,
@@ -50,6 +52,8 @@ PROFILES = {
         "min_volume_24h_usd": 20_000.0,
         "min_buy_sell_ratio_5m": 0.7,
         "max_momentum_5m_pct": 0.90,
+        "min_pair_age_hours": 12.0,
+        "earnings_only": False,
     },
     "aggressive": {
         "risk_fraction_per_trade": 0.05,
@@ -65,6 +69,8 @@ PROFILES = {
         "min_volume_24h_usd": 8_000.0,
         "min_buy_sell_ratio_5m": 0.6,
         "max_momentum_5m_pct": 1.50,
+        "min_pair_age_hours": 0.0,
+        "earnings_only": False,
     },
     # Circuit breaker off, by request. The slot count is NOT raised, and
     # that is a deliberate departure from "deploy the whole bankroll" --
@@ -103,6 +109,36 @@ PROFILES = {
     # across 45 trades is -$9.82 a trade and no playbook is positive, so
     # size is the last thing that should go up -- Kelly is well below zero
     # and scaling a losing edge only loses faster.
+    # Earnings-only. Refuses any entry without demonstrated earnings behind
+    # it, and screens out the setup class that did the damage.
+    #
+    # Of 34 trades with recorded entry conditions, 13 ended in
+    # liquidity_collapse and cost $424 of a $517 total loss. Their median
+    # pair age was 5.9 hours against 76.1 for everything else. Requiring 24
+    # hours and $60k of depth avoided all nine rugs in the sample and cut
+    # the loss rate from $9.10 a trade to $1.60.
+    #
+    # Read that honestly: the surviving cohort is still NEGATIVE. These
+    # filters make the bot lose far more slowly; they do not make it earn.
+    # The earnings_only gate is what stops it trading at all until some
+    # cohort actually demonstrates an edge.
+    "earnings": {
+        "risk_fraction_per_trade": 0.05,
+        "max_open_positions": 3,
+        "stop_loss_pct": 0.25,
+        "take_profit_multiple": 3.0,
+        "give_back_ladder": ((1.5, 1.0), (2.0, 1.25)),
+        "trailing_stop_pct": 0.35,
+        "daily_loss_limit_pct": 0.05,
+        "min_entry_score": 0.45,
+        "min_liquidity_usd": 60_000.0,
+        "lp_substitute_min_liquidity_usd": 100_000.0,
+        "min_volume_24h_usd": 50_000.0,
+        "min_buy_sell_ratio_5m": 0.8,
+        "max_momentum_5m_pct": 0.90,
+        "min_pair_age_hours": 24.0,
+        "earnings_only": True,
+    },
     "guarded": {
         "risk_fraction_per_trade": 0.05,
         "max_open_positions": 3,
@@ -121,6 +157,8 @@ PROFILES = {
         "min_volume_24h_usd": 20_000.0,
         "min_buy_sell_ratio_5m": 0.7,
         "max_momentum_5m_pct": 0.90,
+        "min_pair_age_hours": 24.0,
+        "earnings_only": False,
     },
     "unleashed": {
         "risk_fraction_per_trade": 0.05,
@@ -142,6 +180,8 @@ PROFILES = {
         "min_volume_24h_usd": 8_000.0,
         "min_buy_sell_ratio_5m": 0.6,
         "max_momentum_5m_pct": 1.50,
+        "min_pair_age_hours": 0.0,
+        "earnings_only": False,
     },
 }
 
@@ -201,6 +241,33 @@ class Settings:
     trailing_stop_pct: float = 0.25
     """After the first target, trail the remainder this far below its peak."""
     give_back_ladder: tuple[tuple[float, float], ...] = ((1.3, 1.0), (1.8, 1.2))
+    """Floors that ratchet up as a position runs, as (peak, floor) multiples.
+
+    Before this existed the only exit between entry and the first profit
+    target was the hard stop, so a position could run to 2.3x and still be
+    walked all the way down to -35%. Six of the first twenty-three closed
+    trades did exactly that, for $102.75 of the $125.16 total drawdown.
+
+    The floor only ever rises and never sells into strength, so the rare
+    runners that pay for everything are untouched by it.
+    """
+    earnings_only: bool = False
+    """Refuse any entry without demonstrated earnings behind it.
+
+    Inverts the burden of proof: a trade is not taken unless the record
+    shows setups like it have made money. Expect long stretches in cash --
+    that is the mode doing its job, not a fault.
+    """
+    min_pair_age_hours: float = 0.0
+    """Reject pairs younger than this.
+
+    Measured, not guessed: of 34 trades with recorded entry conditions, the
+    13 that ended in liquidity_collapse had a median pair age of 5.9 hours
+    against 76.1 for the rest, and cost $424 of a $517 total loss. Requiring
+    24 hours plus $60k of depth avoided all nine rugs in the sample and cut
+    the bleed from $9.10 a trade to $1.60. It does not make the strategy
+    profitable; it makes it lose far more slowly.
+    """
     """Floors that ratchet up as a position runs, as (peak, floor) multiples.
 
     Before this existed the only exit between entry and the first profit
@@ -391,6 +458,15 @@ def resolve_lp_policy(settings: "Settings") -> str:
     return LP_STRICT if settings.mode == LIVE else LP_SUBSTITUTE
 
 
+def _flag(name: str, default: bool) -> bool:
+    """Read a boolean from the environment, tolerating the usual spellings."""
+
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "on")
+
+
 def _ladder(
     name: str, default: tuple[tuple[float, float], ...]
 ) -> tuple[tuple[float, float], ...]:
@@ -534,6 +610,13 @@ def load_settings() -> Settings:
         ),
         give_back_ladder=_ladder(
             "MEMEBOT_GIVE_BACK_LADDER", profile["give_back_ladder"]
+        ),
+        earnings_only=_flag(
+            "MEMEBOT_EARNINGS_ONLY", bool(profile.get("earnings_only", False))
+        ),
+        min_pair_age_hours=_float(
+            "MEMEBOT_MIN_PAIR_AGE_HOURS",
+            float(profile.get("min_pair_age_hours", 0.0)), minimum=0.0,
         ),
         min_entry_score=_float(
             "MEMEBOT_MIN_ENTRY_SCORE", profile["min_entry_score"],

@@ -120,6 +120,18 @@ def screen(
     if snapshot.price_usd <= 0:
         failures.append("no valid price")
 
+    # Pair age. Of 34 trades with recorded entry conditions, the 13 that
+    # ended in liquidity_collapse had a median age of 5.9 hours against
+    # 76.1 for the rest, and cost $424 of a $517 total loss. A young pair
+    # is where the rugs are; it is also where the best single winner was,
+    # so this screen buys a much lower loss rate at the cost of some upside.
+    age_hours = snapshot.age_seconds / 3_600.0
+    if settings.min_pair_age_hours and age_hours < settings.min_pair_age_hours:
+        failures.append(
+            f"pair is {age_hours:.1f}h old, under the "
+            f"{settings.min_pair_age_hours:.0f}h minimum"
+        )
+
     if snapshot.liquidity_usd < settings.min_liquidity_usd:
         failures.append(
             f"liquidity ${snapshot.liquidity_usd:,.0f} below floor "

@@ -4,6 +4,48 @@ Paper-trading meme coin bot. Runs a cycle every few minutes in GitHub
 Actions, commits its ledger back to the repo, publishes a dashboard to Pages.
 No real money is at risk anywhere in this repository.
 
+## Live profile: `earnings`
+
+Earnings-only mode. An entry is **refused unless the record shows setups
+like it have made money** — the burden is inverted, so no evidence means no
+trade and long stretches in cash are the mode working, not a fault.
+
+Two ways to clear the gate (`memecoin_bot/evidence_gate.py`):
+the playbook's own record is positive over 20+ trades *and* survives
+dropping its best trade, or the matched cohort of 10+ similar past setups
+is positive. On the live record as of writing, all three playbooks are
+refused.
+
+It also screens the setup class that did the damage: **minimum pair age 24h,
+minimum liquidity $60k**.
+
+### The rug finding — the biggest single result in this repo
+
+Of 34 trades with recorded entry conditions, the 13 that ended in
+`liquidity_collapse` cost **$424 of a $517 total loss**. Everything else —
+43 trades — lost $93 between them. The rugs have a clean signature:
+
+| | rugs | everything else |
+|---|---:|---:|
+| median pair age | **5.9h** | **76.1h** |
+| median liquidity | $41k | $91k |
+| median turnover | 19.0x | 9.3x |
+| median FDV | $233k | $525k |
+
+Filter counterfactuals over the same 34 trades:
+
+| screen | kept | per trade | rugs avoided |
+|---|---:|---:|---:|
+| none (baseline) | 34 | -$9.10 | 0/9 |
+| age >= 24h | 17 | -$4.39 | 8/9 |
+| turnover <= 12x | 17 | -$4.01 | 9/9 |
+| **age >= 24h AND liq >= $60k** | 12 | **-$1.60** | **9/9** |
+
+**Read this honestly: every surviving cohort is still negative.** The screen
+cuts the bleed by ~82%; it does not create an edge. And the single best
+trade in the sample (MICRO, +$63) was a 0.8h-old pair, so the screen also
+costs upside — the young pairs that rug are where the fat tail lives too.
+
 ## Standing direction: capital preservation outranks activity
 
 Do not force trades. When no setup has a demonstrated edge the correct

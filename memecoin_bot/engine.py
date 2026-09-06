@@ -26,7 +26,7 @@ from .safety import (
 )
 from .store import Store
 from .agents import AnalysisContext, Decision, run_panel
-from .evidence_gate import size_multiplier
+from .evidence_gate import earnings_only_verdict, size_multiplier
 from .playbooks import PLAYBOOKS
 from .regime import detect as detect_regime
 from .trade_memory import SetupFeatures, TradeMemory
@@ -632,6 +632,28 @@ class TradingEngine:
             # The panel reviews every shortlisted candidate. It can veto,
             # and it sets conviction -- the playbook proposes, the panel
             # disposes.
+            # Earnings-only: refuse anything without demonstrated earnings
+            # behind it. The burden is inverted here -- no evidence means no
+            # trade, and an empty book is the correct outcome.
+            if self.settings.earnings_only:
+                closed_setups = self.memory.closed()
+                nearby = self.memory.neighbours(
+                    SetupFeatures.from_snapshot(snapshot)
+                )
+                earns, why = earnings_only_verdict(
+                    closed_setups, entry.strategy, nearby
+                )
+                if not earns:
+                    report.rejected += 1
+                    report.rejections["no demonstrated earnings"] = (
+                        report.rejections.get("no demonstrated earnings", 0) + 1
+                    )
+                    log.info("earnings-only refused %s: %s", snapshot.symbol, why)
+                    self._append(watched, self._assess(
+                        snapshot, position_size_usd=size_usd,
+                    ))
+                    continue
+
             verdict = self._review(entry, candidates, at, size_usd)
             if verdict is not None:
                 if verdict.decision is not Decision.PAPER_TRADE:
