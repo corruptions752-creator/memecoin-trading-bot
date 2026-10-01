@@ -388,25 +388,25 @@
   {
    "mint": "HmMDsu7WFPxJVhXEZdkMFgQHgschqA73DnuSTheYpump",
    "symbol": "Janes",
-   "price": 0.0005117,
-   "change_5m": 0.2146,
-   "change_1h": 2.85,
-   "change_24h": 5.23,
-   "liquidity": 65347.72,
-   "fdv": 503778.0,
-   "volume_24h": 599881.33,
-   "volume_5m": 39005.07,
-   "buys_5m": 207,
-   "sells_5m": 105,
-   "buy_ratio": 1.9714285714285715,
-   "turnover": 9.179835654556884,
-   "age_hours": 1.6930643581681781,
-   "confidence": 0.7119,
+   "price": 0.0005748,
+   "change_5m": 0.3493,
+   "change_1h": 0.08070000000000001,
+   "change_24h": 6.0,
+   "liquidity": 70800.47,
+   "fdv": 565910.0,
+   "volume_24h": 1454511.05,
+   "volume_5m": 8269.03,
+   "buys_5m": 114,
+   "sells_5m": 53,
+   "buy_ratio": 2.150943396226415,
+   "turnover": 20.543805005814228,
+   "age_hours": 6.1542427646451525,
+   "confidence": 0.7963,
    "why": [
-    "5m momentum 21.5%",
-    "turnover 9.2x",
-    "buy/sell 1.97",
-    "liquidity $65,348"
+    "5m momentum 34.9%",
+    "turnover 20.5x",
+    "buy/sell 2.15",
+    "liquidity $70,800"
    ],
    "signal": "AVOID",
    "risk_band": "ELEVATED",
@@ -415,7 +415,7 @@
     {
      "name": "Liquidity depth",
      "level": "warn",
-     "detail": "$65,348 in the pool"
+     "detail": "$70,800 in the pool"
     },
     {
      "name": "Supply overhang",
@@ -424,8 +424,8 @@
     },
     {
      "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 9.2x liquidity in 24h"
+     "level": "warn",
+     "detail": "turnover 20.5x liquidity in 24h"
     },
     {
      "name": "Slippage",
@@ -455,34 +455,266 @@
    ],
    "badges": [
     "HIGH MOMENTUM",
-    "NEW PAIR"
+    "BUY PRESSURE"
    ],
    "blocked_by": [
-    "pair is 1.7h old, under the 24h minimum"
+    "pair is 6.2h old, under the 24h minimum"
    ]
   },
   {
-   "mint": "6e8LLHkqCTa4mzGuL1PoUxSfeHmDeceJ3DaJSSUNg937",
-   "symbol": "ARTHUR",
-   "price": 0.001102,
-   "change_5m": 0.0405,
-   "change_1h": 0.2711,
-   "change_24h": -0.2967,
-   "liquidity": 103226.99,
-   "fdv": 1102240.0,
-   "volume_24h": 1436816.44,
-   "volume_5m": 968.73,
-   "buys_5m": 10,
-   "sells_5m": 2,
-   "buy_ratio": 5.0,
-   "turnover": 13.91899967246938,
-   "age_hours": 42.14399760564168,
-   "confidence": 0.6428,
+   "mint": "66hK2GEsF5djkH6JWYCVKytuhz5Hc6bvsDQzRgqrpump",
+   "symbol": "BULLISHCAT",
+   "price": 0.0003633,
+   "change_5m": 0.1954,
+   "change_1h": 3.27,
+   "change_24h": 3.27,
+   "liquidity": 54463.69,
+   "fdv": 363223.0,
+   "volume_24h": 594350.43,
+   "volume_5m": 83665.77,
+   "buys_5m": 977,
+   "sells_5m": 323,
+   "buy_ratio": 3.024767801857585,
+   "turnover": 10.912782993587104,
+   "age_hours": 0.5381316819455888,
+   "confidence": 0.7189,
    "why": [
-    "5m momentum 4.0%",
-    "turnover 13.9x",
-    "buy/sell 5.00",
-    "liquidity $103,227"
+    "5m momentum 19.5%",
+    "turnover 10.9x",
+    "buy/sell 3.02",
+    "liquidity $54,464"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$54,464 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "7x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "ok",
+     "detail": "turnover 10.9x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.34% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "HIGH MOMENTUM",
+    "BUY PRESSURE",
+    "NEW PAIR"
+   ],
+   "blocked_by": [
+    "pair is 0.5h old, under the 24h minimum",
+    "liquidity $54,464 below floor $60,000"
+   ]
+  },
+  {
+   "mint": "4vEX32B4LLr2hL4tzdgz724rSYXGccAGT8MRSUaNpump",
+   "symbol": "DEGEN",
+   "price": 0.0006886,
+   "change_5m": 0.1106,
+   "change_1h": 0.13,
+   "change_24h": 13.13,
+   "liquidity": 78280.07,
+   "fdv": 680381.0,
+   "volume_24h": 2086309.84,
+   "volume_5m": 4990.15,
+   "buys_5m": 18,
+   "sells_5m": 9,
+   "buy_ratio": 2.0,
+   "turnover": 26.651864772221074,
+   "age_hours": 20.101742777824402,
+   "confidence": 0.6791,
+   "why": [
+    "5m momentum 11.1%",
+    "turnover 26.7x",
+    "buy/sell 2.00",
+    "liquidity $78,280"
+   ],
+   "signal": "AVOID",
+   "risk_band": "ELEVATED",
+   "risk_score": 70,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "warn",
+     "detail": "$78,280 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "9x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "warn",
+     "detail": "turnover 26.7x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.31% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "BUY PRESSURE"
+   ],
+   "blocked_by": [
+    "pair is 20.1h old, under the 24h minimum"
+   ]
+  },
+  {
+   "mint": "DESwuRnMHpsUfLWPrF8s6Ph9LTAVyCrMUzwhcN8kSTNK",
+   "symbol": "FUSE",
+   "price": 0.0001057,
+   "change_5m": 0.060599999999999994,
+   "change_1h": 0.6108,
+   "change_24h": 1.13,
+   "liquidity": 32720.31,
+   "fdv": 105738.0,
+   "volume_24h": 1130648.74,
+   "volume_5m": 1717.09,
+   "buys_5m": 31,
+   "sells_5m": 10,
+   "buy_ratio": 3.1,
+   "turnover": 34.55495195491729,
+   "age_hours": 4.684683091110653,
+   "confidence": 0.6364,
+   "why": [
+    "5m momentum 6.1%",
+    "turnover 34.6x",
+    "buy/sell 3.10",
+    "liquidity $32,720"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$32,720 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "3x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "warn",
+     "detail": "turnover 34.6x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.40% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "BUY PRESSURE",
+    "HIGH VOLUME"
+   ],
+   "blocked_by": [
+    "pair is 4.7h old, under the 24h minimum",
+    "liquidity $32,720 below floor $60,000"
+   ]
+  },
+  {
+   "mint": "EDETAdjB1N8AARfoWWTwxeUJiNFjGAEhBv1JBePnagoh",
+   "symbol": "POTUS",
+   "price": 0.0003455,
+   "change_5m": 0.08779999999999999,
+   "change_1h": 0.3897,
+   "change_24h": -0.0678,
+   "liquidity": 64587.83,
+   "fdv": 345584.0,
+   "volume_24h": 566178.64,
+   "volume_5m": 1446.27,
+   "buys_5m": 18,
+   "sells_5m": 5,
+   "buy_ratio": 3.6,
+   "turnover": 8.766026664775701,
+   "age_hours": 42.55357198582755,
+   "confidence": 0.6283,
+   "why": [
+    "5m momentum 8.8%",
+    "turnover 8.8x",
+    "buy/sell 3.60",
+    "liquidity $64,588"
    ],
    "signal": "BUY",
    "risk_band": "ELEVATED",
@@ -491,22 +723,22 @@
     {
      "name": "Liquidity depth",
      "level": "warn",
-     "detail": "$103,227 in the pool"
+     "detail": "$64,588 in the pool"
     },
     {
      "name": "Supply overhang",
      "level": "ok",
-     "detail": "11x more token value than pool depth"
+     "detail": "5x more token value than pool depth"
     },
     {
      "name": "Volume anomaly",
      "level": "ok",
-     "detail": "turnover 13.9x liquidity in 24h"
+     "detail": "turnover 8.8x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "0.30% on a $24 order"
+     "detail": "0.32% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -536,27 +768,27 @@
    "blocked_by": []
   },
   {
-   "mint": "JD3d8mxEJ91LHZSuwVLquFAKdo5PbEeLCUevjjDsPdRe",
-   "symbol": "TERRA",
-   "price": 0.000117,
-   "change_5m": 0.0329,
-   "change_1h": -0.2054,
-   "change_24h": 6.26,
-   "liquidity": 29973.16,
-   "fdv": 111444.0,
-   "volume_24h": 425707.48,
-   "volume_5m": 277.09,
-   "buys_5m": 3,
-   "sells_5m": 1,
-   "buy_ratio": 3.0,
-   "turnover": 14.202956244853729,
-   "age_hours": 27.676155843469832,
-   "confidence": 0.6194,
+   "mint": "G6autZruJLEzYKRh84qTsbVhrTvLEbjBYdHnBQH1zitp",
+   "symbol": "backpack",
+   "price": 0.0005873,
+   "change_5m": 0.0368,
+   "change_1h": -0.2242,
+   "change_24h": 11.61,
+   "liquidity": 89520.81,
+   "fdv": 587351.0,
+   "volume_24h": 5796765.09,
+   "volume_5m": 1824.76,
+   "buys_5m": 25,
+   "sells_5m": 14,
+   "buy_ratio": 1.7857142857142858,
+   "turnover": 64.75326898851786,
+   "age_hours": 45.00940527796745,
+   "confidence": 0.6016,
    "why": [
-    "5m momentum 3.3%",
-    "turnover 14.2x",
-    "buy/sell 3.00",
-    "liquidity $29,973"
+    "5m momentum 3.7%",
+    "turnover 64.8x",
+    "buy/sell 1.79",
+    "liquidity $89,521"
    ],
    "signal": "AVOID",
    "risk_band": "DANGER",
@@ -564,98 +796,23 @@
    "risk_factors": [
     {
      "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$29,973 in the pool"
-    },
-    {
-     "name": "Supply overhang",
-     "level": "ok",
-     "detail": "4x more token value than pool depth"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 14.2x liquidity in 24h"
-    },
-    {
-     "name": "Slippage",
-     "level": "ok",
-     "detail": "0.41% on a $24 order"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER"
-   ],
-   "blocked_by": [
-    "liquidity $29,973 below floor $60,000"
-   ]
-  },
-  {
-   "mint": "82MP84Vjfxd21VHup3jjfJFcsr8SAji9MHy7VHCeSTNK",
-   "symbol": "CROOK",
-   "price": 8.441e-05,
-   "change_5m": 0.0271,
-   "change_1h": -0.18460000000000001,
-   "change_24h": -0.8008,
-   "liquidity": 30004.2,
-   "fdv": 84415.0,
-   "volume_24h": 699155.89,
-   "volume_5m": 235.99,
-   "buys_5m": 4,
-   "sells_5m": 2,
-   "buy_ratio": 2.0,
-   "turnover": 23.301934062564573,
-   "age_hours": 29.311775414413876,
-   "confidence": 0.6159,
-   "why": [
-    "5m momentum 2.7%",
-    "turnover 23.3x",
-    "buy/sell 2.00",
-    "liquidity $30,004"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$30,004 in the pool"
-    },
-    {
-     "name": "Supply overhang",
-     "level": "ok",
-     "detail": "3x more token value than pool depth"
-    },
-    {
-     "name": "Volume anomaly",
      "level": "warn",
-     "detail": "turnover 23.3x liquidity in 24h"
+     "detail": "$89,521 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "7x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "danger",
+     "detail": "turnover 64.8x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "0.41% on a $24 order"
+     "detail": "0.30% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -679,53 +836,54 @@
     }
    ],
    "badges": [
-    "DANGER"
+    "DANGER",
+    "HIGH VOLUME"
    ],
    "blocked_by": [
-    "liquidity $30,004 below floor $60,000"
+    "turnover 65x liquidity suggests wash trading"
    ]
   },
   {
-   "mint": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
-   "symbol": "PUMP",
-   "price": 0.005851,
-   "change_5m": 0.024399999999999998,
-   "change_1h": 0.0415,
-   "change_24h": -0.0127,
-   "liquidity": 27679623.3,
-   "fdv": 4860260863.0,
-   "volume_24h": 8558461.06,
-   "volume_5m": 129090.02,
-   "buys_5m": 186,
-   "sells_5m": 23,
-   "buy_ratio": 8.08695652173913,
-   "turnover": 0.3091971652663351,
-   "age_hours": 10656.838125340342,
-   "confidence": 0.572,
+   "mint": "DEW9dSN6QpWyNthphCpMmAbZP1Q4cEKR9xQXAri98WDP",
+   "symbol": "SI",
+   "price": 0.03541,
+   "change_5m": 0.021,
+   "change_1h": -0.1753,
+   "change_24h": -0.22149999999999997,
+   "liquidity": 1123610.33,
+   "fdv": 35411570.0,
+   "volume_24h": 3968923.0,
+   "volume_5m": 5653.73,
+   "buys_5m": 11,
+   "sells_5m": 2,
+   "buy_ratio": 5.5,
+   "turnover": 3.5322948659612265,
+   "age_hours": 245.78277621653345,
+   "confidence": 0.5433,
    "why": [
-    "5m momentum 2.4%",
-    "turnover 0.3x",
-    "buy/sell 8.09",
-    "liquidity $27,679,623"
+    "5m momentum 2.1%",
+    "turnover 3.5x",
+    "buy/sell 5.50",
+    "liquidity $1,123,610"
    ],
-   "signal": "AVOID",
+   "signal": "BUY",
    "risk_band": "ELEVATED",
    "risk_score": 70,
    "risk_factors": [
     {
      "name": "Liquidity depth",
      "level": "ok",
-     "detail": "$27,679,623 in the pool"
+     "detail": "$1,123,610 in the pool"
     },
     {
      "name": "Supply overhang",
-     "level": "warn",
-     "detail": "176x more token value than pool depth"
+     "level": "ok",
+     "detail": "32x more token value than pool depth"
     },
     {
      "name": "Volume anomaly",
      "level": "ok",
-     "detail": "turnover 0.3x liquidity in 24h"
+     "detail": "turnover 3.5x liquidity in 24h"
     },
     {
      "name": "Slippage",
@@ -754,34 +912,106 @@
     }
    ],
    "badges": [
+    "AI SIGNAL",
     "BUY PRESSURE"
    ],
-   "blocked_by": [
-    "FDV $4,860,260,863 above cap $300,000,000"
-   ]
+   "blocked_by": []
   },
   {
-   "mint": "8oMvxgcBJtDGNSc8kogCEEFxSvvi7x6jHRfSWaiWpump",
-   "symbol": "DOMAIN",
-   "price": 0.0003667,
-   "change_5m": 0.1782,
-   "change_1h": 6.88,
-   "change_24h": 6.5,
-   "liquidity": 59285.28,
-   "fdv": 350802.0,
-   "volume_24h": 3077143.36,
-   "volume_5m": 102863.72,
-   "buys_5m": 458,
-   "sells_5m": 403,
-   "buy_ratio": 1.1364764267990075,
-   "turnover": 51.904003152215864,
-   "age_hours": 19.671989172961975,
-   "confidence": 0.5644,
+   "mint": "D1YZZg9dBZ7AbfknZVbaeVLto36eySwoFYEVhZrD4F4n",
+   "symbol": "GO",
+   "price": 0.001605,
+   "change_5m": 0.0473,
+   "change_1h": 0.0027,
+   "change_24h": 0.5576,
+   "liquidity": 124140.1,
+   "fdv": 1587726.0,
+   "volume_24h": 1251378.74,
+   "volume_5m": 1408.27,
+   "buys_5m": 8,
+   "sells_5m": 6,
+   "buy_ratio": 1.3333333333333333,
+   "turnover": 10.080374834561917,
+   "age_hours": 200.3971830733617,
+   "confidence": 0.5399,
    "why": [
-    "5m momentum 17.8%",
-    "turnover 51.9x",
-    "buy/sell 1.14",
-    "liquidity $59,285"
+    "5m momentum 4.7%",
+    "turnover 10.1x",
+    "buy/sell 1.33",
+    "liquidity $124,140"
+   ],
+   "signal": "BUY",
+   "risk_band": "ELEVATED",
+   "risk_score": 70,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "warn",
+     "detail": "$124,140 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "13x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "ok",
+     "detail": "turnover 10.1x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.29% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "AI SIGNAL"
+   ],
+   "blocked_by": []
+  },
+  {
+   "mint": "5jG2PihdS26vw1n7xwkT69DSzAvwy3YTe2SyJoJHpump",
+   "symbol": "MASKJAK",
+   "price": 0.0004226,
+   "change_5m": 0.5407,
+   "change_1h": 7.66,
+   "change_24h": 7.66,
+   "liquidity": 59833.77,
+   "fdv": 422642.0,
+   "volume_24h": 930033.62,
+   "volume_5m": 374235.73,
+   "buys_5m": 676,
+   "sells_5m": 559,
+   "buy_ratio": 1.2093023255813953,
+   "turnover": 15.543623943468715,
+   "age_hours": 0.3259556354416741,
+   "confidence": 0.5381,
+   "why": [
+    "5m momentum 54.1%",
+    "turnover 15.5x",
+    "buy/sell 1.21",
+    "liquidity $59,834"
    ],
    "signal": "AVOID",
    "risk_band": "DANGER",
@@ -790,7 +1020,86 @@
     {
      "name": "Liquidity depth",
      "level": "danger",
-     "detail": "$59,285 in the pool"
+     "detail": "$59,834 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "7x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "ok",
+     "detail": "turnover 15.5x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.33% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "HIGH MOMENTUM",
+    "NEW PAIR"
+   ],
+   "blocked_by": [
+    "pair is 0.3h old, under the 24h minimum",
+    "liquidity $59,834 below floor $60,000",
+    "pair only 20m old, minimum 30m"
+   ]
+  },
+  {
+   "mint": "GzahJ2WwEtyVvUAetrmK2zvvfhD887WtuH8hFFuh5nwn",
+   "symbol": "GRIFFIN",
+   "price": 0.0003406,
+   "change_5m": 0.16829999999999998,
+   "change_1h": 0.2818,
+   "change_24h": 5.99,
+   "liquidity": 59360.61,
+   "fdv": 340616.0,
+   "volume_24h": 2253538.21,
+   "volume_5m": 6306.65,
+   "buys_5m": 30,
+   "sells_5m": 30,
+   "buy_ratio": 1.0,
+   "turnover": 37.96352850821445,
+   "age_hours": 4.836071959402826,
+   "confidence": 0.5356,
+   "why": [
+    "5m momentum 16.8%",
+    "turnover 38.0x",
+    "buy/sell 1.00",
+    "liquidity $59,361"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$59,361 in the pool"
     },
     {
      "name": "Supply overhang",
@@ -799,8 +1108,8 @@
     },
     {
      "name": "Volume anomaly",
-     "level": "danger",
-     "detail": "turnover 51.9x liquidity in 24h"
+     "level": "warn",
+     "detail": "turnover 38.0x liquidity in 24h"
     },
     {
      "name": "Slippage",
@@ -834,33 +1143,32 @@
     "HIGH VOLUME"
    ],
    "blocked_by": [
-    "pair is 19.7h old, under the 24h minimum",
-    "liquidity $59,285 below floor $60,000",
-    "turnover 52x liquidity suggests wash trading"
+    "pair is 4.8h old, under the 24h minimum",
+    "liquidity $59,361 below floor $60,000"
    ]
   },
   {
-   "mint": "FFrRBPP9yWtSqnKjXXM9C77MBdLztfdgSnRE858zpump",
-   "symbol": "MEME",
-   "price": 0.0006291,
-   "change_5m": 0.22829999999999998,
-   "change_1h": 0.0232,
-   "change_24h": 12.04,
-   "liquidity": 78283.78,
-   "fdv": 613071.0,
-   "volume_24h": 3523444.76,
-   "volume_5m": 39624.67,
-   "buys_5m": 225,
-   "sells_5m": 276,
-   "buy_ratio": 0.8152173913043478,
-   "turnover": 45.0086181326451,
-   "age_hours": 1.5000500924719704,
-   "confidence": 0.5537,
+   "mint": "6e8LLHkqCTa4mzGuL1PoUxSfeHmDeceJ3DaJSSUNg937",
+   "symbol": "ARTHUR",
+   "price": 0.0009378,
+   "change_5m": 0.14529999999999998,
+   "change_1h": 0.5907,
+   "change_24h": 0.1195,
+   "liquidity": 98296.76,
+   "fdv": 937856.0,
+   "volume_24h": 1277354.53,
+   "volume_5m": 9877.74,
+   "buys_5m": 14,
+   "sells_5m": 36,
+   "buy_ratio": 0.3888888888888889,
+   "turnover": 12.994879281880706,
+   "age_hours": 46.60523861732748,
+   "confidence": 0.5058,
    "why": [
-    "5m momentum 22.8%",
-    "turnover 45.0x",
-    "buy/sell 0.82",
-    "liquidity $78,284"
+    "5m momentum 14.5%",
+    "turnover 13.0x",
+    "buy/sell 0.39",
+    "liquidity $98,297"
    ],
    "signal": "AVOID",
    "risk_band": "ELEVATED",
@@ -869,312 +1177,22 @@
     {
      "name": "Liquidity depth",
      "level": "warn",
-     "detail": "$78,284 in the pool"
+     "detail": "$98,297 in the pool"
     },
     {
      "name": "Supply overhang",
      "level": "ok",
-     "detail": "8x more token value than pool depth"
+     "detail": "10x more token value than pool depth"
     },
     {
      "name": "Volume anomaly",
-     "level": "warn",
-     "detail": "turnover 45.0x liquidity in 24h"
+     "level": "ok",
+     "detail": "turnover 13.0x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "0.31% on a $24 order"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "HIGH MOMENTUM",
-    "HIGH VOLUME",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 1.5h old, under the 24h minimum"
-   ]
-  },
-  {
-   "mint": "6rupufE4bhRD8BuqtdB1EidZ6pvRkd9HsERFT17pump",
-   "symbol": "GOLD",
-   "price": 3.753e-06,
-   "change_5m": 0.3504,
-   "change_1h": 0.1283,
-   "change_24h": 0.1283,
-   "liquidity": 0.0,
-   "fdv": 3753.77,
-   "volume_24h": 345.3,
-   "volume_5m": 96.34,
-   "buys_5m": 4,
-   "sells_5m": 2,
-   "buy_ratio": 2.0,
-   "turnover": 0.0,
-   "age_hours": 0.2467862915330463,
-   "confidence": 0.5363,
-   "why": [
-    "5m momentum 35.0%",
-    "turnover 0.0x",
-    "buy/sell 2.00",
-    "liquidity $0"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$0 in the pool"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 0.0x liquidity in 24h"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER",
-    "HIGH MOMENTUM",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 0.2h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000",
-    "24h volume $345 below floor $50,000",
-    "pair only 15m old, minimum 30m"
-   ]
-  },
-  {
-   "mint": "G6autZruJLEzYKRh84qTsbVhrTvLEbjBYdHnBQH1zitp",
-   "symbol": "backpack",
-   "price": 0.00209,
-   "change_5m": 0.13019999999999998,
-   "change_1h": 0.1074,
-   "change_24h": 22.12,
-   "liquidity": 172039.43,
-   "fdv": 2090532.0,
-   "volume_24h": 5228303.58,
-   "volume_5m": 14332.0,
-   "buys_5m": 32,
-   "sells_5m": 35,
-   "buy_ratio": 0.9142857142857143,
-   "turnover": 30.390147072679795,
-   "age_hours": 40.548164265751836,
-   "confidence": 0.5281,
-   "why": [
-    "5m momentum 13.0%",
-    "turnover 30.4x",
-    "buy/sell 0.91",
-    "liquidity $172,039"
-   ],
-   "signal": "BUY",
-   "risk_band": "ELEVATED",
-   "risk_score": 70,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "warn",
-     "detail": "$172,039 in the pool"
-    },
-    {
-     "name": "Supply overhang",
-     "level": "ok",
-     "detail": "12x more token value than pool depth"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "warn",
-     "detail": "turnover 30.4x liquidity in 24h"
-    },
-    {
-     "name": "Slippage",
-     "level": "ok",
-     "detail": "0.28% on a $24 order"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "AI SIGNAL",
-    "HIGH VOLUME"
-   ],
-   "blocked_by": []
-  },
-  {
-   "mint": "83qtar4BCJrWEdD8cwmKjpu8dwPbqKdeHZo32PEjpump",
-   "symbol": "VANGUARD",
-   "price": 1.138e-05,
-   "change_5m": 0.375,
-   "change_1h": 2.36,
-   "change_24h": 2.36,
-   "liquidity": 0.0,
-   "fdv": 11386.63,
-   "volume_24h": 110282.9,
-   "volume_5m": 1883.98,
-   "buys_5m": 33,
-   "sells_5m": 12,
-   "buy_ratio": 2.75,
-   "turnover": 0.0,
-   "age_hours": 0.9748425472444958,
-   "confidence": 0.5212,
-   "why": [
-    "5m momentum 37.5%",
-    "turnover 0.0x",
-    "buy/sell 2.75",
-    "liquidity $0"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$0 in the pool"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 0.0x liquidity in 24h"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER",
-    "HIGH MOMENTUM",
-    "BUY PRESSURE",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 1.0h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000"
-   ]
-  },
-  {
-   "mint": "9aqmJjCnnMQv42TXLk921ceUkN35nea2QP969n1caqjj",
-   "symbol": "SI",
-   "price": 0.005486,
-   "change_5m": 0.0452,
-   "change_1h": -0.11470000000000001,
-   "change_24h": -0.0897,
-   "liquidity": 287308.75,
-   "fdv": 5327529.0,
-   "volume_24h": 2910507.38,
-   "volume_5m": 1810.44,
-   "buys_5m": 5,
-   "sells_5m": 22,
-   "buy_ratio": 0.22727272727272727,
-   "turnover": 10.130242744086283,
-   "age_hours": 42.37568754772345,
-   "confidence": 0.4699,
-   "why": [
-    "5m momentum 4.5%",
-    "turnover 10.1x",
-    "buy/sell 0.23",
-    "liquidity $287,309"
-   ],
-   "signal": "AVOID",
-   "risk_band": "ELEVATED",
-   "risk_score": 70,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "ok",
-     "detail": "$287,309 in the pool"
-    },
-    {
-     "name": "Supply overhang",
-     "level": "ok",
-     "detail": "19x more token value than pool depth"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 10.1x liquidity in 24h"
-    },
-    {
-     "name": "Slippage",
-     "level": "ok",
-     "detail": "0.27% on a $24 order"
+     "detail": "0.30% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -1199,31 +1217,31 @@
    ],
    "badges": [],
    "blocked_by": [
-    "sell pressure: buy/sell ratio 0.23"
+    "sell pressure: buy/sell ratio 0.39"
    ]
   },
   {
-   "mint": "6iAj2oywQMiD9NeyTcW1S7UtG7e3jSK7Ud5ZJDqJpump",
-   "symbol": "HI",
-   "price": 0.0002847,
-   "change_5m": 0.0252,
-   "change_1h": 0.1936,
-   "change_24h": 1.16,
-   "liquidity": 50444.91,
-   "fdv": 277662.0,
-   "volume_24h": 687435.06,
-   "volume_5m": 574.81,
-   "buys_5m": 21,
-   "sells_5m": 20,
-   "buy_ratio": 1.05,
-   "turnover": 13.627441500044306,
-   "age_hours": 43.17611991067727,
-   "confidence": 0.4564,
+   "mint": "AFdP6pnJwj2mwfeji6rR2bA9pz1AVV96u1R194dLJwKK",
+   "symbol": "PUMPE",
+   "price": 8.94e-05,
+   "change_5m": 0.038,
+   "change_1h": -0.0102,
+   "change_24h": 0.7045999999999999,
+   "liquidity": 25454.66,
+   "fdv": 86403.0,
+   "volume_24h": 129672.59,
+   "volume_5m": 1031.37,
+   "buys_5m": 26,
+   "sells_5m": 9,
+   "buy_ratio": 2.888888888888889,
+   "turnover": 5.094257397270284,
+   "age_hours": 2.95535387913386,
+   "confidence": 0.4999,
    "why": [
-    "5m momentum 2.5%",
-    "turnover 13.6x",
-    "buy/sell 1.05",
-    "liquidity $50,445"
+    "5m momentum 3.8%",
+    "turnover 5.1x",
+    "buy/sell 2.89",
+    "liquidity $25,455"
    ],
    "signal": "AVOID",
    "risk_band": "DANGER",
@@ -1232,22 +1250,22 @@
     {
      "name": "Liquidity depth",
      "level": "danger",
-     "detail": "$50,445 in the pool"
+     "detail": "$25,455 in the pool"
     },
     {
      "name": "Supply overhang",
      "level": "ok",
-     "detail": "6x more token value than pool depth"
+     "detail": "3x more token value than pool depth"
     },
     {
      "name": "Volume anomaly",
      "level": "ok",
-     "detail": "turnover 13.6x liquidity in 24h"
+     "detail": "turnover 5.1x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "0.35% on a $24 order"
+     "detail": "0.44% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -1271,31 +1289,34 @@
     }
    ],
    "badges": [
-    "DANGER"
+    "DANGER",
+    "BUY PRESSURE",
+    "NEW PAIR"
    ],
    "blocked_by": [
-    "liquidity $50,445 below floor $60,000"
+    "pair is 3.0h old, under the 24h minimum",
+    "liquidity $25,455 below floor $60,000"
    ]
   },
   {
-   "mint": "5C7JRjLwW3GvEe1EP6ppok5o8BbcgWFBqLBF3KpjngKH",
-   "symbol": "CATBOT",
-   "price": 2.247e-05,
-   "change_5m": 0.17370000000000002,
-   "change_1h": 0.35450000000000004,
-   "change_24h": 5.81,
+   "mint": "86Eev7RJLnxzjGqhzbomTyVdoav8GdocewueNR1bpump",
+   "symbol": "Randy",
+   "price": 2.541e-05,
+   "change_5m": 0.23739999999999997,
+   "change_1h": 0.2447,
+   "change_24h": 0.5908,
    "liquidity": 0.0,
-   "fdv": 22474.45,
-   "volume_24h": 126884.01,
-   "volume_5m": 905.91,
-   "buys_5m": 22,
-   "sells_5m": 4,
+   "fdv": 25415.56,
+   "volume_24h": 21368.55,
+   "volume_5m": 1247.36,
+   "buys_5m": 11,
+   "sells_5m": 2,
    "buy_ratio": 5.5,
    "turnover": 0.0,
-   "age_hours": 9604.890675902036,
-   "confidence": 0.4556,
+   "age_hours": 1029.3833123752145,
+   "confidence": 0.4946,
    "why": [
-    "5m momentum 17.4%",
+    "5m momentum 23.7%",
     "turnover 0.0x",
     "buy/sell 5.50",
     "liquidity $0"
@@ -1341,30 +1362,262 @@
     "BUY PRESSURE"
    ],
    "blocked_by": [
-    "liquidity $0 below floor $60,000"
+    "liquidity $0 below floor $60,000",
+    "24h volume $21,369 below floor $50,000"
    ]
   },
   {
-   "mint": "Dy2jGqhkUsHVPahvzXShamDCxKe8TYWBXWrJg2aBpump",
-   "symbol": "PLATA",
-   "price": 1.345e-05,
-   "change_5m": 0.1721,
-   "change_1h": -0.0622,
-   "change_24h": 2.85,
-   "liquidity": 0.0,
-   "fdv": 13454.91,
-   "volume_24h": 85707.09,
-   "volume_5m": 551.64,
-   "buys_5m": 13,
-   "sells_5m": 0,
-   "buy_ratio": 2.0,
-   "turnover": 0.0,
-   "age_hours": 2.7562314389149347,
-   "confidence": 0.4546,
+   "mint": "HuAXPyDWDaMYFKuwQHpqL1oPnj93zdzWmtvFGzCeCUa7",
+   "symbol": "MASK",
+   "price": 0.03186,
+   "change_5m": 0.0623,
+   "change_1h": 0.2273,
+   "change_24h": 0.6464,
+   "liquidity": 615450.84,
+   "fdv": 31866708.0,
+   "volume_24h": 908851.43,
+   "volume_5m": 41056.53,
+   "buys_5m": 67,
+   "sells_5m": 24,
+   "buy_ratio": 2.7916666666666665,
+   "turnover": 1.476724656026142,
+   "age_hours": 203.15634975479708,
+   "confidence": 0.4914,
    "why": [
-    "5m momentum 17.2%",
+    "5m momentum 6.2%",
+    "turnover 1.5x",
+    "buy/sell 2.79",
+    "liquidity $615,451"
+   ],
+   "signal": "BUY",
+   "risk_band": "ELEVATED",
+   "risk_score": 70,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "ok",
+     "detail": "$615,451 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "52x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "ok",
+     "detail": "turnover 1.5x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.26% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "AI SIGNAL",
+    "BUY PRESSURE"
+   ],
+   "blocked_by": []
+  },
+  {
+   "mint": "FFrRBPP9yWtSqnKjXXM9C77MBdLztfdgSnRE858zpump",
+   "symbol": "MEME",
+   "price": 7.098e-05,
+   "change_5m": 0.1155,
+   "change_1h": 0.4053,
+   "change_24h": 0.4714,
+   "liquidity": 25613.15,
+   "fdv": 69168.0,
+   "volume_24h": 4239274.95,
+   "volume_5m": 3919.67,
+   "buys_5m": 19,
+   "sells_5m": 26,
+   "buy_ratio": 0.7307692307692307,
+   "turnover": 165.51165905013636,
+   "age_hours": 5.961449068850941,
+   "confidence": 0.47,
+   "why": [
+    "5m momentum 11.6%",
+    "turnover 165.5x",
+    "buy/sell 0.73",
+    "liquidity $25,613"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$25,613 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "3x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "danger",
+     "detail": "turnover 165.5x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.44% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "HIGH VOLUME"
+   ],
+   "blocked_by": [
+    "pair is 6.0h old, under the 24h minimum",
+    "liquidity $25,613 below floor $60,000",
+    "turnover 166x liquidity suggests wash trading",
+    "sell pressure: buy/sell ratio 0.73"
+   ]
+  },
+  {
+   "mint": "AYRTq6bfnNzWMY5ACWTRUtMCwV8PAhux3wm84q5mpump",
+   "symbol": "lowkjelly",
+   "price": 4.818e-05,
+   "change_5m": 0.0461,
+   "change_1h": 0.6539,
+   "change_24h": 0.12710000000000002,
+   "liquidity": 19014.66,
+   "fdv": 46620.0,
+   "volume_24h": 953463.63,
+   "volume_5m": 2092.15,
+   "buys_5m": 20,
+   "sells_5m": 19,
+   "buy_ratio": 1.0526315789473684,
+   "turnover": 50.14360656461909,
+   "age_hours": 7.16118728419145,
+   "confidence": 0.4696,
+   "why": [
+    "5m momentum 4.6%",
+    "turnover 50.1x",
+    "buy/sell 1.05",
+    "liquidity $19,015"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$19,015 in the pool"
+    },
+    {
+     "name": "Supply overhang",
+     "level": "ok",
+     "detail": "2x more token value than pool depth"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "danger",
+     "detail": "turnover 50.1x liquidity in 24h"
+    },
+    {
+     "name": "Slippage",
+     "level": "ok",
+     "detail": "0.50% on a $24 order"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "HIGH VOLUME"
+   ],
+   "blocked_by": [
+    "pair is 7.2h old, under the 24h minimum",
+    "liquidity $19,015 below floor $60,000",
+    "turnover 50x liquidity suggests wash trading"
+   ]
+  },
+  {
+   "mint": "GWDAwqnTrrcLnxf49Mc1DHB7oEY7gQw2tbiRrqqee4N1",
+   "symbol": "AI",
+   "price": 5.655e-06,
+   "change_5m": 0.1539,
+   "change_1h": 0.6426999999999999,
+   "change_24h": 0.46909999999999996,
+   "liquidity": 0.0,
+   "fdv": 5655.64,
+   "volume_24h": 8762.88,
+   "volume_5m": 320.49,
+   "buys_5m": 6,
+   "sells_5m": 1,
+   "buy_ratio": 6.0,
+   "turnover": 0.0,
+   "age_hours": 1.2503007546398375,
+   "confidence": 0.4435,
+   "why": [
+    "5m momentum 15.4%",
     "turnover 0.0x",
-    "buy/sell 2.00",
+    "buy/sell 6.00",
     "liquidity $0"
    ],
    "signal": "AVOID",
@@ -1405,36 +1658,36 @@
    "badges": [
     "DANGER",
     "HIGH MOMENTUM",
-    "BUY PRESSURE",
     "NEW PAIR"
    ],
    "blocked_by": [
-    "pair is 2.8h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000"
+    "pair is 1.3h old, under the 24h minimum",
+    "liquidity $0 below floor $60,000",
+    "24h volume $8,763 below floor $50,000"
    ]
   },
   {
-   "mint": "4ewtv8cLUULfNj9wsRytsXkgERG5mx1MZ3LZGMTfVVmm",
-   "symbol": "RO",
-   "price": 0.0002465,
-   "change_5m": 0.1193,
-   "change_1h": 0.0678,
-   "change_24h": 4.2,
-   "liquidity": 46104.37,
-   "fdv": 246508.0,
-   "volume_24h": 424803.15,
-   "volume_5m": 1612.36,
-   "buys_5m": 2,
-   "sells_5m": 3,
-   "buy_ratio": 0.6666666666666666,
-   "turnover": 9.213945445952303,
-   "age_hours": 13.161219865017467,
-   "confidence": 0.4526,
+   "mint": "H5Kugtkfc5vrm3oSdX6FDkxuutRK1S3GW7Rr7UgnoDhP",
+   "symbol": "PUTIN",
+   "price": 4.329e-05,
+   "change_5m": 0.0557,
+   "change_1h": 0.0208,
+   "change_24h": -0.1174,
+   "liquidity": 18760.84,
+   "fdv": 42230.0,
+   "volume_24h": 1644076.91,
+   "volume_5m": 999.29,
+   "buys_5m": 6,
+   "sells_5m": 13,
+   "buy_ratio": 0.46153846153846156,
+   "turnover": 87.63343805501246,
+   "age_hours": 16.393687254786492,
+   "confidence": 0.4334,
    "why": [
-    "5m momentum 11.9%",
-    "turnover 9.2x",
-    "buy/sell 0.67",
-    "liquidity $46,104"
+    "5m momentum 5.6%",
+    "turnover 87.6x",
+    "buy/sell 0.46",
+    "liquidity $18,761"
    ],
    "signal": "AVOID",
    "risk_band": "DANGER",
@@ -1443,22 +1696,22 @@
     {
      "name": "Liquidity depth",
      "level": "danger",
-     "detail": "$46,104 in the pool"
+     "detail": "$18,761 in the pool"
     },
     {
      "name": "Supply overhang",
      "level": "ok",
-     "detail": "5x more token value than pool depth"
+     "detail": "2x more token value than pool depth"
     },
     {
      "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 9.2x liquidity in 24h"
+     "level": "danger",
+     "detail": "turnover 87.6x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "0.35% on a $24 order"
+     "detail": "0.51% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -1482,60 +1735,63 @@
     }
    ],
    "badges": [
-    "DANGER"
+    "DANGER",
+    "HIGH VOLUME"
    ],
    "blocked_by": [
-    "pair is 13.2h old, under the 24h minimum",
-    "liquidity $46,104 below floor $60,000",
-    "sell pressure: buy/sell ratio 0.67"
+    "pair is 16.4h old, under the 24h minimum",
+    "liquidity $18,761 below floor $60,000",
+    "turnover 88x liquidity suggests wash trading",
+    "sell pressure: buy/sell ratio 0.46"
    ]
   },
   {
-   "mint": "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS",
-   "symbol": "KNOTS",
-   "price": 0.004288,
-   "change_5m": 0.0319,
-   "change_1h": -0.0366,
-   "change_24h": -0.46619999999999995,
-   "liquidity": 500678.97,
-   "fdv": 4288083.0,
-   "volume_24h": 349353.34,
-   "volume_5m": 3725.14,
-   "buys_5m": 13,
-   "sells_5m": 2,
-   "buy_ratio": 6.5,
-   "turnover": 0.6977591649195892,
-   "age_hours": 611.8001087823179,
-   "confidence": 0.446,
+   "mint": "CuWwbPv8stUbyBU9mABmMSibzsUr5akGUasHoik6pump",
+   "symbol": "IRL",
+   "price": 2.334e-05,
+   "change_5m": 0.2847,
+   "change_1h": -0.522,
+   "change_24h": -0.522,
+   "liquidity": 11902.6,
+   "fdv": 23344.0,
+   "volume_24h": 119497.98,
+   "volume_5m": 1746.65,
+   "buys_5m": 39,
+   "sells_5m": 13,
+   "buy_ratio": 3.0,
+   "turnover": 10.039653521079428,
+   "age_hours": 0.6217889914909999,
+   "confidence": 0.3868,
    "why": [
-    "5m momentum 3.2%",
-    "turnover 0.7x",
-    "buy/sell 6.50",
-    "liquidity $500,679"
+    "5m momentum 28.5%",
+    "turnover 10.0x",
+    "buy/sell 3.00",
+    "liquidity $11,903",
+    "1h trend badly negative; halving score"
    ],
-   "signal": "WATCH",
-   "risk_band": "ELEVATED",
-   "risk_score": 70,
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
    "risk_factors": [
     {
      "name": "Liquidity depth",
-     "level": "ok",
-     "detail": "$500,679 in the pool"
+     "level": "danger",
+     "detail": "$11,903 in the pool"
     },
     {
      "name": "Supply overhang",
      "level": "ok",
-     "detail": "9x more token value than pool depth"
+     "detail": "2x more token value than pool depth"
     },
     {
      "name": "Volume anomaly",
      "level": "ok",
-     "detail": "turnover 0.7x liquidity in 24h"
+     "detail": "turnover 10.0x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "0.26% on a $24 order"
+     "detail": "0.65% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -1559,32 +1815,37 @@
     }
    ],
    "badges": [
+    "DANGER",
+    "HIGH MOMENTUM",
     "BUY PRESSURE",
-    "WATCH"
+    "NEW PAIR"
    ],
-   "blocked_by": []
+   "blocked_by": [
+    "pair is 0.6h old, under the 24h minimum",
+    "liquidity $11,903 below floor $60,000"
+   ]
   },
   {
-   "mint": "GAcNBm6iE2MZdqGhyu7Wb1wTDm8esU2BMQk2bX1ipump",
-   "symbol": "inustable",
-   "price": 1.131e-05,
-   "change_5m": 0.0353,
-   "change_1h": 0.1085,
-   "change_24h": -0.5444,
+   "mint": "3YJSqXQkN5gXoZkHrHFnAMKwqyGv7B7WmRdyYVFAXnmh",
+   "symbol": "USDC",
+   "price": 3.376e-05,
+   "change_5m": 0.0567,
+   "change_1h": -0.068,
+   "change_24h": 5.74,
    "liquidity": 0.0,
-   "fdv": 11311.46,
-   "volume_24h": 101437.76,
-   "volume_5m": 239.25,
-   "buys_5m": 13,
-   "sells_5m": 5,
-   "buy_ratio": 2.6,
+   "fdv": 33763.12,
+   "volume_24h": 226189.76,
+   "volume_5m": 1595.77,
+   "buys_5m": 8,
+   "sells_5m": 3,
+   "buy_ratio": 2.6666666666666665,
    "turnover": 0.0,
-   "age_hours": 28.837786545621025,
-   "confidence": 0.3709,
+   "age_hours": 5.4121277375353705,
+   "confidence": 0.384,
    "why": [
-    "5m momentum 3.5%",
+    "5m momentum 5.7%",
     "turnover 0.0x",
-    "buy/sell 2.60",
+    "buy/sell 2.67",
     "liquidity $0"
    ],
    "signal": "AVOID",
@@ -1627,30 +1888,31 @@
     "BUY PRESSURE"
    ],
    "blocked_by": [
+    "pair is 5.4h old, under the 24h minimum",
     "liquidity $0 below floor $60,000"
    ]
   },
   {
-   "mint": "A1rdnPoATLHbwSv6HkKWYGsvna2J1ztfs5EMxBEQpump",
-   "symbol": "MM",
-   "price": 1.875e-05,
-   "change_5m": 0.20629999999999998,
-   "change_1h": 0.6781999999999999,
-   "change_24h": 1.89,
+   "mint": "7tAuTirubjqS7pCexRFGSqC7swmwrgCP2MjF1NU7pump",
+   "symbol": "TRUMP",
+   "price": 6.358e-06,
+   "change_5m": 0.0393,
+   "change_1h": 0.6995,
+   "change_24h": 0.6995,
    "liquidity": 0.0,
-   "fdv": 18753.23,
-   "volume_24h": 128707.88,
-   "volume_5m": 2890.77,
-   "buys_5m": 24,
-   "sells_5m": 18,
-   "buy_ratio": 1.3333333333333333,
+   "fdv": 6358.87,
+   "volume_24h": 8325.02,
+   "volume_5m": 491.34,
+   "buys_5m": 17,
+   "sells_5m": 4,
+   "buy_ratio": 4.25,
    "turnover": 0.0,
-   "age_hours": 10.831433605617947,
-   "confidence": 0.3644,
+   "age_hours": 0.9322232118580076,
+   "confidence": 0.3733,
    "why": [
-    "5m momentum 20.6%",
+    "5m momentum 3.9%",
     "turnover 0.0x",
-    "buy/sell 1.33",
+    "buy/sell 4.25",
     "liquidity $0"
    ],
    "signal": "AVOID",
@@ -1690,383 +1952,172 @@
    ],
    "badges": [
     "DANGER",
-    "HIGH MOMENTUM"
+    "BUY PRESSURE",
+    "NEW PAIR"
    ],
    "blocked_by": [
-    "pair is 10.8h old, under the 24h minimum",
+    "pair is 0.9h old, under the 24h minimum",
+    "liquidity $0 below floor $60,000",
+    "24h volume $8,325 below floor $50,000"
+   ]
+  },
+  {
+   "mint": "5U9QcXZsymiQCsJJ2ZwM6FoL3tbJFETYobWtXKUUpump",
+   "symbol": "COINBRAWL",
+   "price": 1.329e-05,
+   "change_5m": 0.0204,
+   "change_1h": -0.29710000000000003,
+   "change_24h": 2.89,
+   "liquidity": 0.0,
+   "fdv": 13295.05,
+   "volume_24h": 37347.57,
+   "volume_5m": 64.15,
+   "buys_5m": 2,
+   "sells_5m": 0,
+   "buy_ratio": 2.0,
+   "turnover": 0.0,
+   "age_hours": 1.239701250129276,
+   "confidence": 0.3618,
+   "why": [
+    "5m momentum 2.0%",
+    "turnover 0.0x",
+    "buy/sell 2.00",
+    "liquidity $0"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$0 in the pool"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "ok",
+     "detail": "turnover 0.0x liquidity in 24h"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "NEW PAIR"
+   ],
+   "blocked_by": [
+    "pair is 1.2h old, under the 24h minimum",
+    "liquidity $0 below floor $60,000",
+    "24h volume $37,348 below floor $50,000"
+   ]
+  },
+  {
+   "mint": "2t9pfba75WNkzPbQMY4Gyc1ZfJ4fDQoFEsDhcDyHpump",
+   "symbol": "DELTAS",
+   "price": 5.732e-06,
+   "change_5m": 0.1081,
+   "change_1h": 0.6444,
+   "change_24h": 0.6444,
+   "liquidity": 0.0,
+   "fdv": 5732.1,
+   "volume_24h": 82066.38,
+   "volume_5m": 357.11,
+   "buys_5m": 13,
+   "sells_5m": 8,
+   "buy_ratio": 1.625,
+   "turnover": 0.0,
+   "age_hours": 0.8655345586935679,
+   "confidence": 0.3529,
+   "why": [
+    "5m momentum 10.8%",
+    "turnover 0.0x",
+    "buy/sell 1.62",
+    "liquidity $0"
+   ],
+   "signal": "AVOID",
+   "risk_band": "DANGER",
+   "risk_score": 35,
+   "risk_factors": [
+    {
+     "name": "Liquidity depth",
+     "level": "danger",
+     "detail": "$0 in the pool"
+    },
+    {
+     "name": "Volume anomaly",
+     "level": "ok",
+     "detail": "turnover 0.0x liquidity in 24h"
+    },
+    {
+     "name": "Mint authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Freeze authority",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Holder concentration",
+     "level": "unknown",
+     "detail": "not checked"
+    },
+    {
+     "name": "Sell simulation",
+     "level": "unknown",
+     "detail": "not checked"
+    }
+   ],
+   "badges": [
+    "DANGER",
+    "NEW PAIR"
+   ],
+   "blocked_by": [
+    "pair is 0.9h old, under the 24h minimum",
     "liquidity $0 below floor $60,000"
    ]
   },
   {
-   "mint": "7sJHZth6etBfscZd2QBw5GTk4XmTZPgqMKuRu3N4pump",
-   "symbol": "PUMPOS",
-   "price": 1.194e-05,
-   "change_5m": 0.2102,
-   "change_1h": 2.53,
-   "change_24h": 2.53,
-   "liquidity": 0.0,
-   "fdv": 11940.11,
-   "volume_24h": 34149.44,
-   "volume_5m": 9936.7,
-   "buys_5m": 130,
-   "sells_5m": 112,
-   "buy_ratio": 1.1607142857142858,
-   "turnover": 0.0,
-   "age_hours": 0.19139767004383934,
-   "confidence": 0.338,
+   "mint": "mNg27UTWqp7UyL8npd1wNCZNf7C6G24sxnM5FM5qpad",
+   "symbol": "pad",
+   "price": 1.107e-05,
+   "change_5m": 0.505,
+   "change_1h": -0.7642,
+   "change_24h": -0.7642,
+   "liquidity": 7657.61,
+   "fdv": 11075.0,
+   "volume_24h": 261077.65,
+   "volume_5m": 950.73,
+   "buys_5m": 23,
+   "sells_5m": 4,
+   "buy_ratio": 5.75,
+   "turnover": 34.09388177251127,
+   "age_hours": 0.47234456419944765,
+   "confidence": 0.3458,
    "why": [
-    "5m momentum 21.0%",
-    "turnover 0.0x",
-    "buy/sell 1.16",
-    "liquidity $0"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$0 in the pool"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 0.0x liquidity in 24h"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER",
-    "HIGH MOMENTUM",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 0.2h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000",
-    "24h volume $34,149 below floor $50,000",
-    "pair only 11m old, minimum 30m"
-   ]
-  },
-  {
-   "mint": "6vVfbQVRSXcfyQamPqCzcqmA86vCzb2d7B7gmDDqpump",
-   "symbol": "UPTOBER",
-   "price": 0.0001927,
-   "change_5m": 0.0681,
-   "change_1h": -0.0955,
-   "change_24h": -0.0925,
-   "liquidity": 85686.76,
-   "fdv": 174262.0,
-   "volume_24h": 161424.02,
-   "volume_5m": 1576.82,
-   "buys_5m": 6,
-   "sells_5m": 5,
-   "buy_ratio": 1.2,
-   "turnover": 1.8838852116709746,
-   "age_hours": 17370.25371986813,
-   "confidence": 0.3192,
-   "why": [
-    "5m momentum 6.8%",
-    "turnover 1.9x",
-    "buy/sell 1.20",
-    "liquidity $85,687"
-   ],
-   "signal": "WATCH",
-   "risk_band": "ELEVATED",
-   "risk_score": 70,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "warn",
-     "detail": "$85,687 in the pool"
-    },
-    {
-     "name": "Supply overhang",
-     "level": "ok",
-     "detail": "2x more token value than pool depth"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 1.9x liquidity in 24h"
-    },
-    {
-     "name": "Slippage",
-     "level": "ok",
-     "detail": "0.31% on a $24 order"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "WATCH"
-   ],
-   "blocked_by": []
-  },
-  {
-   "mint": "H624soSwArqBJY8GRFF9puFzYtq3WL2D3A8ABqQ41rci",
-   "symbol": "SLOP",
-   "price": 1.806e-05,
-   "change_5m": 0.10039999999999999,
-   "change_1h": 2.48,
-   "change_24h": 2.48,
-   "liquidity": 0.0,
-   "fdv": 18068.05,
-   "volume_24h": 109611.79,
-   "volume_5m": 51219.88,
-   "buys_5m": 566,
-   "sells_5m": 482,
-   "buy_ratio": 1.1742738589211619,
-   "turnover": 0.0,
-   "age_hours": 0.16084210806422763,
-   "confidence": 0.2731,
-   "why": [
-    "5m momentum 10.0%",
-    "turnover 0.0x",
-    "buy/sell 1.17",
-    "liquidity $0"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$0 in the pool"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 0.0x liquidity in 24h"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 0.2h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000",
-    "pair only 10m old, minimum 30m"
-   ]
-  },
-  {
-   "mint": "8V2jTnUbfTDkzznAD2BwhCRR1jJrin3Exj5zPoU2AmJA",
-   "symbol": "FOMO",
-   "price": 0.001543,
-   "change_5m": 0.0633,
-   "change_1h": 1.35,
-   "change_24h": 306.45,
-   "liquidity": 0.0,
-   "fdv": 1543662.64,
-   "volume_24h": 2410765.53,
-   "volume_5m": 48831.97,
-   "buys_5m": 97,
-   "sells_5m": 95,
-   "buy_ratio": 1.0210526315789474,
-   "turnover": 0.0,
-   "age_hours": 1.4897669337193171,
-   "confidence": 0.2249,
-   "why": [
-    "5m momentum 6.3%",
-    "turnover 0.0x",
-    "buy/sell 1.02",
-    "liquidity $0"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$0 in the pool"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 0.0x liquidity in 24h"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 1.5h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000"
-   ]
-  },
-  {
-   "mint": "C1kjZVw1eE7xPZaNtDSA73cU4cuRQKpfBH1kMFZ4pump",
-   "symbol": "STRKT",
-   "price": 7.91e-06,
-   "change_5m": 0.7575,
-   "change_1h": 0.7575,
-   "change_24h": 0.7575,
-   "liquidity": 0.0,
-   "fdv": 7910.29,
-   "volume_24h": 30084.2,
-   "volume_5m": 30084.2,
-   "buys_5m": 311,
-   "sells_5m": 201,
-   "buy_ratio": 1.5472636815920398,
-   "turnover": 0.0,
-   "age_hours": 0.06250877790980869,
-   "confidence": 0.2117,
-   "why": [
-    "5m momentum 75.8%",
-    "turnover 0.0x",
-    "buy/sell 1.55",
-    "liquidity $0"
-   ],
-   "signal": "AVOID",
-   "risk_band": "DANGER",
-   "risk_score": 35,
-   "risk_factors": [
-    {
-     "name": "Liquidity depth",
-     "level": "danger",
-     "detail": "$0 in the pool"
-    },
-    {
-     "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 0.0x liquidity in 24h"
-    },
-    {
-     "name": "Mint authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Freeze authority",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Holder concentration",
-     "level": "unknown",
-     "detail": "not checked"
-    },
-    {
-     "name": "Sell simulation",
-     "level": "unknown",
-     "detail": "not checked"
-    }
-   ],
-   "badges": [
-    "DANGER",
-    "HIGH MOMENTUM",
-    "NEW PAIR"
-   ],
-   "blocked_by": [
-    "pair is 0.1h old, under the 24h minimum",
-    "liquidity $0 below floor $60,000",
-    "24h volume $30,084 below floor $50,000",
-    "pair only 4m old, minimum 30m"
-   ]
-  },
-  {
-   "mint": "D2oMauRoEund2AbqjVULZ3ijS2fXB9EacSBK5xSWVx72",
-   "symbol": "a/autism",
-   "price": 4.269e-06,
-   "change_5m": 0.023,
-   "change_1h": -0.9123,
-   "change_24h": -0.9123,
-   "liquidity": 3887.91,
-   "fdv": 4270.0,
-   "volume_24h": 45093.06,
-   "volume_5m": 394.72,
-   "buys_5m": 5,
-   "sells_5m": 14,
-   "buy_ratio": 0.35714285714285715,
-   "turnover": 11.5982777379106,
-   "age_hours": 0.31115587260988026,
-   "confidence": 0.2067,
-   "why": [
-    "5m momentum 2.3%",
-    "turnover 11.6x",
-    "buy/sell 0.36",
-    "liquidity $3,888",
+    "5m momentum 50.5%",
+    "turnover 34.1x",
+    "buy/sell 5.75",
+    "liquidity $7,658",
     "1h trend badly negative; halving score"
    ],
    "signal": "AVOID",
@@ -2076,7 +2127,7 @@
     {
      "name": "Liquidity depth",
      "level": "danger",
-     "detail": "$3,888 in the pool"
+     "detail": "$7,658 in the pool"
     },
     {
      "name": "Supply overhang",
@@ -2085,13 +2136,13 @@
     },
     {
      "name": "Volume anomaly",
-     "level": "ok",
-     "detail": "turnover 11.6x liquidity in 24h"
+     "level": "warn",
+     "detail": "turnover 34.1x liquidity in 24h"
     },
     {
      "name": "Slippage",
      "level": "ok",
-     "detail": "1.48% on a $24 order"
+     "detail": "0.87% on a $24 order"
     },
     {
      "name": "Mint authority",
@@ -2116,19 +2167,482 @@
    ],
    "badges": [
     "DANGER",
+    "HIGH MOMENTUM",
+    "BUY PRESSURE",
+    "HIGH VOLUME",
     "NEW PAIR"
    ],
    "blocked_by": [
-    "pair is 0.3h old, under the 24h minimum",
-    "liquidity $3,888 below floor $60,000",
-    "24h volume $45,093 below floor $50,000",
-    "pair only 19m old, minimum 30m",
-    "sell pressure: buy/sell ratio 0.36"
+    "pair is 0.5h old, under the 24h minimum",
+    "liquidity $7,658 below floor $60,000",
+    "pair only 28m old, minimum 30m"
    ]
   }
  ],
  "events": [
   {
+   "at": 1790892824.8946981,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 374 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 374,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 374
+   }
+  },
+  {
+   "at": 1790892824.8946981,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892779.8967583,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 373 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 373,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 373
+   }
+  },
+  {
+   "at": 1790892779.8967583,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892734.89662,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 372 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 372,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 372
+   }
+  },
+  {
+   "at": 1790892734.89662,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892689.896503,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 373 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 373,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 373
+   }
+  },
+  {
+   "at": 1790892689.896503,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892644.8963902,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 373 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 373,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 373
+   }
+  },
+  {
+   "at": 1790892644.8963902,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892599.8962824,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 372 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 372,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 372
+   }
+  },
+  {
+   "at": 1790892599.8962824,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892554.8961663,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 372 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 372,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 372
+   }
+  },
+  {
+   "at": 1790892554.8961663,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892509.8960505,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 374 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 374,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 374
+   }
+  },
+  {
+   "at": 1790892509.8960505,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892464.8959389,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 373 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 373,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 373
+   }
+  },
+  {
+   "at": 1790892464.8959389,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892419.8958602,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 372 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 372,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 372
+   }
+  },
+  {
+   "at": 1790892419.8958602,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892374.895746,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790892374.895746,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892329.8956406,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790892329.8956406,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892284.8955333,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 370 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 370,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 370
+   }
+  },
+  {
+   "at": 1790892284.8955333,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892239.8954248,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 370 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 370,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 370
+   }
+  },
+  {
+   "at": 1790892239.8954248,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892194.8953018,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 370 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 370,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 370
+   }
+  },
+  {
+   "at": 1790892194.8953018,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892149.895219,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790892149.895219,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892104.8950775,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790892104.8950775,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892059.8949406,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790892059.8949406,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790892014.8948252,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 372 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 372,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 372
+   }
+  },
+  {
+   "at": 1790892014.8948252,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790891969.894698,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790891969.894698,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
+   "at": 1790891924.894575,
+   "kind": "scan",
+   "symbol": "",
+   "mint": "",
+   "message": "scan complete \u2014 371 seen, 0 shortlisted, 0 tradable",
+   "detail": {
+    "scanned": 371,
+    "shortlisted": 0,
+    "candidates": 0,
+    "entered": 0,
+    "rejected": 371
+   }
+  },
+  {
+   "at": 1790891924.894575,
+   "kind": "warn",
+   "symbol": "FROG",
+   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
+   "message": "no quote for FROG; holding",
+   "detail": {}
+  },
+  {
    "at": 1790876764.6407294,
    "kind": "scan",
    "symbol": "",
@@ -2540,468 +3054,6 @@
   },
   {
    "at": 1790875954.6408844,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790875909.640731,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 342 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 342,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 342
-   }
-  },
-  {
-   "at": 1790875909.640731,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790875864.640598,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 341 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 341,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 341
-   }
-  },
-  {
-   "at": 1790875864.640598,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790856206.864561,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 347 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 347,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 347
-   }
-  },
-  {
-   "at": 1790856206.864561,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790856161.8668835,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 347 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 347,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 347
-   }
-  },
-  {
-   "at": 1790856161.8668835,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790856116.8667605,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790856116.8667605,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790856071.8666387,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 348 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 348,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 348
-   }
-  },
-  {
-   "at": 1790856071.8666387,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790856026.8665087,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 348 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 348,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 348
-   }
-  },
-  {
-   "at": 1790856026.8665087,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855981.866387,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790855981.866387,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855936.8662333,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790855936.8662333,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855891.8660638,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 347 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 347,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 347
-   }
-  },
-  {
-   "at": 1790855891.8660638,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855846.8659463,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 347 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 347,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 347
-   }
-  },
-  {
-   "at": 1790855846.8659463,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855801.8658204,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790855801.8658204,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855756.865696,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 348 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 348,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 348
-   }
-  },
-  {
-   "at": 1790855756.865696,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855711.8655593,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 348 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 348,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 348
-   }
-  },
-  {
-   "at": 1790855711.8655593,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855666.8654642,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 347 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 347,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 347
-   }
-  },
-  {
-   "at": 1790855666.8654642,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855621.865321,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 345 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 345,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 345
-   }
-  },
-  {
-   "at": 1790855621.865321,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855576.8651662,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790855576.8651662,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855531.8650775,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790855531.8650775,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855486.8649516,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 346 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 346,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 346
-   }
-  },
-  {
-   "at": 1790855486.8649516,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855441.8648179,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 347 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 347,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 347
-   }
-  },
-  {
-   "at": 1790855441.8648179,
-   "kind": "warn",
-   "symbol": "FROG",
-   "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
-   "message": "no quote for FROG; holding",
-   "detail": {}
-  },
-  {
-   "at": 1790855396.8646889,
-   "kind": "scan",
-   "symbol": "",
-   "mint": "",
-   "message": "scan complete \u2014 348 seen, 0 shortlisted, 0 tradable",
-   "detail": {
-    "scanned": 348,
-    "shortlisted": 0,
-    "candidates": 0,
-    "entered": 0,
-    "rejected": 348
-   }
-  },
-  {
-   "at": 1790855396.8646889,
    "kind": "warn",
    "symbol": "FROG",
    "mint": "AC4R6TfLntx4MPwTZvwBzNshkaH6yDZ3d1t6Re7CrTDo",
@@ -3036,7 +3088,7 @@
  },
  "run": {
   "started_at": 1788173916.409113,
-  "days": 31.282988295808988,
+  "days": 31.468883000885448,
   "cycles": 84,
   "tokens_seen": 31001
  },
@@ -3049,7 +3101,7 @@
   "target_multiple": 3.0,
   "min_entry_score": 0.45
  },
- "generated_at": 1790876766.5978708,
+ "generated_at": 1790892827.9003894,
  "bankroll": 477.8564117548744,
  "cash": 398.9554994695583,
  "open_cost": 78.90091228531611,
@@ -3068,7 +3120,7 @@
    "cost_usd": 44.672605233297624,
    "peak_price": 0.0001678,
    "took_profit": false,
-   "age_hours": 743.7954064454635,
+   "age_hours": 748.2568793672986,
    "unverified": [
     "LP not confirmed locked or burned (rug risk)",
     "holder distribution unknown"
